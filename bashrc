@@ -1,137 +1,90 @@
-# ~/.bashrc: executed by bash(1) for non-login shells.
-# see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
-# for examples
+# alias used by the following 'cenv()' function
+# used like `echo`, but outputs to stderr instead of stdout
+alias errcho='>&2 echo'
 
-# If not running interactively, don't do anything
-case $- in
-    *i*) ;;
-      *) return;;
-esac
+# simple function for managing conda environments
+function cenv() {
 
-# don't put duplicate lines or lines starting with space in the history.
-# See bash(1) for more options
-HISTCONTROL=ignoreboth
+# Usage and help message
+read -r -d '' CENV_HELP <<-'EOF'
+Usage: cenv [COMMAND] [FILE]
 
-# append to the history file, don't overwrite it
-shopt -s histappend
+Detect, activate, delete, and update conda environments.
+FILE should be a conda .yml environment file.
+If FILE is not given, assumes it is environment.yml.
+Automatically finds the environment name from FILE.
 
-# for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
-HISTSIZE=1000
-HISTFILESIZE=2000
+Commands:
 
-# check the window size after each command and, if necessary,
-# update the values of LINES and COLUMNS.
-shopt -s checkwinsize
+  None     Activates the environment
+  rm       Delete the environment
+  up       Update the environment
 
-# If set, the pattern "**" used in a pathname expansion context will
-# match all files and zero or more directories and subdirectories.
-#shopt -s globstar
+EOF
 
-# make less more friendly for non-text input files, see lesspipe(1)
-[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+    envfile="environment.yml"
 
-# set variable identifying the chroot you work in (used in the prompt below)
-if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
-    debian_chroot=$(cat /etc/debian_chroot)
-fi
-
-# set a fancy prompt (non-color, unless we know we "want" color)
-case "$TERM" in
-    xterm-color|*-256color) color_prompt=yes;;
-esac
-
-# uncomment for a colored prompt, if the terminal has the capability; turned
-# off by default to not distract the user: the focus in a terminal window
-# should be on the output of commands, not on the prompt
-#force_color_prompt=yes
-
-if [ -n "$force_color_prompt" ]; then
-    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
-	# We have color support; assume it's compliant with Ecma-48
-	# (ISO/IEC-6429). (Lack of such support is extremely rare, and such
-	# a case would tend to support setf rather than setaf.)
-	color_prompt=yes
+    # Parse the command line arguments
+    if [[ $# -gt 2 ]]; then
+        errcho "Invalid argument(s): $@";
+        return 1;
+    elif [[ $# == 0 ]]; then
+        cmd="activate"
+    elif [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+        echo "$CENV_HELP";
+        return 0;
+    elif [[ "$1" == "rm" ]]; then
+        cmd="delete"
+        if [[ $# == 2 ]]; then
+            envfile="$2"
+        fi
+    elif [[ "$1" == "up" ]]; then
+        cmd="update"
+        if [[ $# == 2 ]]; then
+            envfile="$2"
+        fi
+    elif [[ "$1" == "da" ]]; then
+        cmd="deactivate"
+        if [[ $# == 2 ]]; then
+            envfile="$2"
+        fi
+    elif [[ "$1" == "cr" ]]; then
+        cmd="create"
+        if [[ $# == 2 ]]; then
+            envfile="$2"
+        fi
+    elif [[ $# == 1 ]]; then
+        envfile="$1"
+        cmd="activate"
     else
-	color_prompt=
+        errcho "Invalid argument(s): $@";
+        return 1;
     fi
-fi
 
-if [ "$color_prompt" = yes ]; then
-    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
-else
-    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
-fi
-unset color_prompt force_color_prompt
-
-# If this is an xterm set the title to user@host:dir
-case "$TERM" in
-xterm*|rxvt*)
-    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
-    ;;
-*)
-    ;;
-esac
-
-# enable color support of ls and also add handy aliases
-if [ -x /usr/bin/dircolors ]; then
-    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
-    alias ls='ls --color=auto'
-    #alias dir='dir --color=auto'
-    #alias vdir='vdir --color=auto'
-
-    alias grep='grep --color=auto'
-    alias fgrep='fgrep --color=auto'
-    alias egrep='egrep --color=auto'
-fi
-
-# colored GCC warnings and errors
-#export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
-
-# some more ls aliases
-alias ll='ls -alF'
-alias la='ls -A'
-alias l='ls -CF'
-
-# Add an "alert" alias for long running commands.  Use like so:
-#   sleep 10; alert
-alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
-
-# Alias definitions.
-# You may want to put all your additions into a separate file like
-# ~/.bash_aliases, instead of adding them here directly.
-# See /usr/share/doc/bash-doc/examples in the bash-doc package.
-
-if [ -f ~/.bash_aliases ]; then
-    . ~/.bash_aliases
-fi
-
-# enable programmable completion features (you don't need to enable
-# this, if it's already enabled in /etc/bash.bashrc and /etc/profile
-# sources /etc/bash.bashrc).
-if ! shopt -oq posix; then
-  if [ -f /usr/share/bash-completion/bash_completion ]; then
-    . /usr/share/bash-completion/bash_completion
-  elif [ -f /etc/bash_completion ]; then
-    . /etc/bash_completion
-  fi
-fi
-
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/samal/anaconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    eval "$__conda_setup"
-else
-    if [ -f "/home/samal/anaconda3/etc/profile.d/conda.sh" ]; then
-        . "/home/samal/anaconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="/home/samal/anaconda3/bin:$PATH"
+    # Check if the file exists
+    if [[ ! -e "$envfile" ]]; then
+        errcho "Environment file not found:" $envfile;
+        return 1;
     fi
-fi
-unset __conda_setup
-# <<< conda initialize <<<
 
-# For using Xming
-export DISPLAY=:0
+    # Get the environment name from the yaml file
+    envname=$(grep "name: *" $envfile | sed -n -e 's/name: //p')
 
-alias win_home="cd /mnt/c/Users/samal/Documents/School/Warwick/"
+    # Execute one of these actions: activate, update, delete
+    if [[ $cmd == "activate" ]]; then
+        conda activate "$envname";
+    elif [[ $cmd == "create" ]]; then
+        conda env create -f "$envfile"
+        conda activate "$envname";
+    elif [[ $cmd == "deactivate" ]]; then
+        conda deactivate;
+    elif [[ $cmd == "update" ]]; then
+        errcho "Updating environment:" $envname;
+        conda activate "$envname";
+        conda env update -f "$envfile"
+    elif [[ $cmd == "delete" ]]; then
+        errcho "Removing environment:" $envname;
+        conda deactivate;
+        conda env remove --name "$envname";
+    fi
+}
