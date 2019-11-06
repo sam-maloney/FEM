@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from numpy.linalg import inv, det
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import cg
-
-from math import sqrt, sin, sinh, pi
 
 class Mesh(object):
     """ Simple Mesh class for a regular triangular grid on a unit square
@@ -79,15 +77,16 @@ class Mesh(object):
 # wavenumber for boundary function u(x,1) = sinh(k*pi) = g(x,y)
 k = 1
 
-# Numer of grid divisions along one dimension
-# Number of triangular elements equals 2*N*N
-N = 2
+# Numer of grid cells along one dimension, each cell forms 2 triangles
+# therefore number of triangular elements equals 2*N*N
+N = 3
 mesh = Mesh(N)
 
 # pre-allocate arrays for stiffness matrix triplets
-data = np.empty(9*2*N*N, dtype='float64')
-row_ind = np.empty(9*2*N*N, dtype='int32')
-col_ind = np.empty(9*2*N*N, dtype='int32')
+# these are the maximum possibly required sizes; not all will be used
+data = np.zeros(9*2*N*N, dtype='float64')
+row_ind = np.zeros(9*2*N*N, dtype='int32')
+col_ind = np.zeros(9*2*N*N, dtype='int32')
 
 # pre-allocate array for RHS vector and Dirichlet boundary function
 n_nodes = (N+1)*(N+1)
@@ -95,20 +94,12 @@ F = np.zeros(n_nodes, dtype='float64')
 g = np.zeros(n_nodes, dtype='float64')
 
 # compute boundary function values at boundary nodes
-#is_top_boundary = ( (mesh.nodes[:,1] == 1.0)
-#                * (mesh.nodes[:,0] != 0.0)
-#                * (mesh.nodes[:,0] != 1.0) )
-#g[is_top_boundary] = sinh(k*pi)
-
-for i_node, node in enumerate(mesh.nodes):
-    if ( node[1] == 1.0 ):
-        g[i_node] = sin(k*pi*node[0]) * sinh(k*pi)
+g[mesh.is_boundary_node] = \
+    ( np.sin(k*np.pi*mesh.nodes[mesh.is_boundary_node,0])
+    * np.sinh(k*np.pi*mesh.nodes[mesh.is_boundary_node,1]) )
 
 # define shape-function gradients on reference triangle
-gradients = np.array([[-sqrt(2), -1, 0], [-sqrt(2), 0, -1]])
-#grad_a = np.array([[-sqrt(2)], [-sqrt(2)]])
-#grad_b = np.array([[-1], [0]])
-#grad_c = np.array([[0], [-1]])
+gradients = np.array([[-1, 1, 0], [-1, 0, 1]])
 
 # triplet index for assembly
 index = 0
@@ -119,26 +110,15 @@ for elem in mesh:
     N_c = mesh.nodes[elem[2]]
     # define transformation matrix for elem to reference triangle
     J = np.array([N_b - N_a, N_c - N_a]).transpose()
-    det_J = det(J)
-    J_inv_T = inv(J).transpose()
+    det_J = np.linalg.det(J)
+    J_inv_T = np.linalg.inv(J).transpose()
     
     for i_alpha, alpha in enumerate(elem):
         if mesh.is_boundary_node[alpha]:
-            # if alpha is on the top boundary, where y = 1
-            if ( (mesh.nodes[alpha,1] == 1.0)
-                    and not (mesh.nodes[alpha,0] == 0.0)
-                    and not (mesh.nodes[alpha,0] == 1.0) ):
-                F[alpha] += g[alpha]
-                # for homogenous case all interior values of F are zero
-                # so this is the only place we add to F
+            F[alpha] += g[alpha]
             for beta in elem:
                 if (beta == alpha):
                     data[index] = 1
-                    row_ind[index] = alpha
-                    col_ind[index] = beta
-                    index += 1;
-                else:
-                    data[index] = 0
                     row_ind[index] = alpha
                     col_ind[index] = beta
                     index += 1;
@@ -150,10 +130,6 @@ for elem in mesh:
                     F[alpha] -= ( g[beta] * det_J
                                 * np.dot(J_inv_T@gradients[:,i_alpha],
                                          J_inv_T@gradients[:,i_beta]) )
-                    data[index] = 0
-                    row_ind[index] = alpha
-                    col_ind[index] = beta
-                    index += 1;
                 else:
                     data[index] = det_J*np.dot(J_inv_T@gradients[:,i_alpha],
                                                J_inv_T@gradients[:,i_beta])
@@ -171,29 +147,39 @@ if (info == 0):
 else:
     print('solution failed with error code:', info)
 
-# compute the analytic solution
-u_exact = np.empty(n_nodes, dtype='float64')
-for i_node, node in enumerate(mesh.nodes):
-    u_exact[i_node] = sin(k*pi*node[0])*sinh(k*pi*node[1])
-
-E_inf = abs(u - u_exact).max()
+# compute the analytic solution and error norms
+u_exact = np.sin(k*np.pi*mesh.nodes[:,0])*np.sinh(k*np.pi*mesh.nodes[:,1])
+E_inf = LA.norm(u - u_exact, np.inf)
+E_2 = LA.norm(u - u_exact)
 print('max error = ', E_inf)
+print('L2 error  = ', E_2)
 
+##### Begin Plotting Routines #####
+
+# clear the current figure, if opened, and space the subplots
+plt.clf()
+plt.subplots_adjust(hspace = 0.5)
+
+# create a matplotlib triangulation object from the mesh
 triangulation = mpl.tri.Triangulation(mesh.nodes[:,0],
                                       mesh.nodes[:,1],
                                       mesh.elems)
-
-# plot the mesh
-#plt.triplot(triangulation)
 
 # plot the result
 plt.subplot(211)
 plt.tripcolor(triangulation, u, shading='gouraud')
 plt.colorbar()
+plt.xlabel(r'$x$')
+plt.ylabel(r'$y$')
+plt.title('FEM solution')
+
+# plot the mesh over the FEM solution
+plt.triplot(triangulation, 'w-', lw=1)
 
 # plot analytic solution
 plt.subplot(212)
 plt.tripcolor(triangulation, u_exact, shading='gouraud')
 plt.colorbar()
-
-B = A.toarray()
+plt.xlabel(r'$x$')
+plt.ylabel(r'$y$')
+plt.title('Analytic solution')
