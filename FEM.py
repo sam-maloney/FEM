@@ -8,8 +8,8 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import cg
 
 class Mesh(object):
-    """ Simple Mesh class for a regular triangular grid on a unit square
-    """
+    """ Simple Mesh class for a regular triangular grid on a unit square."""
+    
     def generate_mesh(self):
         for j in range(self.N + 1):
             for i in range(self.N + 1):
@@ -214,8 +214,6 @@ plt.colorbar()
 plt.xlabel(r'$x$')
 plt.ylabel(r'$y$')
 plt.title('Final FEM solution')
-## plot the mesh over the FEM solution
-#plt.triplot(triangulation, 'w-', lw=1)
 
 # plot analytic solution
 plt.subplot(222)
@@ -262,8 +260,21 @@ plt.xlim(N_array[0], N_array[-1])
 plt.xscale('log')
 plt.minorticks_off()
 plt.xticks(N_array, N_array)
+plt.ylim(1, 3)
 plt.yticks([1, 1.5, 2, 2.5, 3])
 plt.xlabel(r'$N$')
 plt.ylabel(r'Intra-step Order of Convergence')
 plt.title('FEM Order of Accuracy')
 plt.legend(fontsize='x-large')
+
+## plot the mesh over the FEM solution
+#fig = plt.figure()
+#fig.set_size_inches(7,7)
+#plt.tripcolor(triangulation, u, shading='gouraud')
+#plt.triplot(triangulation, 'r-', lw=2)
+#plt.xlabel(r'$x$')
+#plt.ylabel(r'$y$')
+#plt.axes().set_aspect('equal')
+#plt.margins(0,0)
+#plt.savefig("FEM_mesh.pdf", bbox_inches = 'tight',
+#    pad_inches = 0)
