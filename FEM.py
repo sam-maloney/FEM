@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Simple linear finite element method (FEM) simulation
+
+@author: Sam Maloney
+"""
 
 import numpy as np
 import matplotlib as mpl
@@ -15,26 +20,22 @@ class Mesh(object):
         self.nodes = np.indices((N+1, N+1)).T.reshape(-1,2) / N
         self.is_boundary_node = np.any(np.mod(self.nodes, 1) == 0, axis=1)
         self.elems = np.empty((2*N*N, 3), dtype='int32')
-        for j in range(N):
-            for i in range(N):
-                self.elems[2*j*N + 2*i, 0] = (j  )*(N+1) + i
-                self.elems[2*j*N + 2*i, 1] = (j  )*(N+1) + i+1
-                self.elems[2*j*N + 2*i, 2] = (j+1)*(N+1) + i+1
-                
-                self.elems[2*j*N + 2*i+1, 0] = (j  )*(N+1) + i
-                self.elems[2*j*N + 2*i+1, 1] = (j+1)*(N+1) + i+1
-                self.elems[2*j*N + 2*i+1, 2] = (j+1)*(N+1) + i
+        temp = np.array([[range(N),range(N)],
+                         [range(1,N+1),range(N+2,2*N+2)],
+                         [range(N+2,2*N+2),range(N+1,2*N+1)]]).T.reshape(-1,3)
+        for i in range(0,N):
+            self.elems[2*i*N:2*(i+1)*N,:] = temp + i*(N+1)
     
     def __repr__(self):
-        return '{}({!r})'.format(self.__class__.__name__, self.N)
+        return f'{self.__class__.__name__}({self.N})'
 
     def __str__(self):
-        string = repr(self) + '\n\nNodes:\n#\tx\ty\n'
+        string = f'{repr(self)}\n\nNodes:\n#\tx\ty\n'
         for n, (x, y) in enumerate(self.nodes):
-            string += "{:d}\t{:.5f}\t{:.5f}\n".format(n, x, y)
+            string += f'{n}\t{x:.5f}\t{y:.5f}\n'
         string += '\nElements:\n#\tn1\tn2\tn3\n'
         for e, (a, b, c) in enumerate(self.elems):
-            string += "{:d}\t{:d}\t{:d}\t{:d}\n".format(e, a, b, c)
+            string += f'{e}\t{a}\t{b}\t{c}\n'
         return string
     
     def __len__(self):
@@ -118,7 +119,7 @@ class FemSim(object):
         self.u, self.info = cg(self.A, self.F)
         
     def __repr__(self):
-        return '{}({!r},{!r})'.format(self.__class__.__name__, self.N, self.k)
+        return f'{self.__class__.__name__}({self.N},{self.k})'
 
 ##### End of FemSim class definition #####
         
@@ -154,7 +155,7 @@ for iN, N in enumerate(N_array):
 #    if (femSim.info == 0):
 #        print('Solution successful')
     if (femSim.info != 0):
-        print('solution failed for N = ', N, ' with error code:', femSim.info)
+        print(f'solution failed for N = {N} with error code: {femSim.info}')
     
     # compute the analytic solution and error norms
     u_exact = ( np.sin(femSim.k*np.pi*femSim.mesh.nodes[:,0])
