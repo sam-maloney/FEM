@@ -20,11 +20,12 @@ class Mesh(object):
         self.nodes = np.indices((N+1, N+1)).T.reshape(-1,2) / N
         self.is_boundary_node = np.any(np.mod(self.nodes, 1) == 0, axis=1)
         self.elems = np.empty((2*N*N, 3), dtype='int32')
-        temp = np.array([[range(N),range(N)],
-                         [range(1,N+1),range(N+2,2*N+2)],
-                         [range(N+2,2*N+2),range(N+1,2*N+1)]]).T.reshape(-1,3)
-        for i in range(0,N):
-            self.elems[2*i*N:2*(i+1)*N,:] = temp + i*(N+1)
+        self.elems[0:2*N,:] = np.array([[range(N),range(N)],
+                                        [range(1,N+1),range(N+2,2*N+2)],
+                                        [range(N+2,2*N+2),range(N+1,2*N+1)]]) \
+                                        .T.reshape(-1,3)
+        for i in range(1,N):
+            self.elems[2*i*N:2*(i+1)*N,:] = self.elems[0:2*N,:] + i*(N+1)
     
     def __repr__(self):
         return f'{self.__class__.__name__}({self.N})'

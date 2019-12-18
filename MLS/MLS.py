@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Simple Meshfree method simulation using moving less squares (MLS)
+Simple Meshfree method simulation using moving least squares (MLS)
 
 @author: Sam Maloney
 """
@@ -11,28 +11,32 @@ import numpy as np
 #import matplotlib.pyplot as plt
 
 import scipy.linalg as la
+from scipy.sparse import csr_matrix
 
 class MlsSim(object):
     """Class for meshless moving least squares (MLS) method."""
     
     def __init__(self, N, Nquad=1, support=-1, form='cubic'):
         self.N = N
+        self.nNodes = (N+1)*(N+1)
         self.Nquad = Nquad
         if support > 0:
             self.support = support
         else: # if support is negative, set to default 1.5X grid spacing
             self.support = 1.5/(N)
         self.selectSpline(form)
-        self.nodes = np.indices((N+1, N+1)).T.reshape(-1,2) / N
+        self.nodes = ( np.indices((N+1, N+1), dtype='float64')
+                       .T.reshape(-1,2) ) / N
         self.generateQuadraturePoints(N, Nquad)
-        # self.quads = np.empty((N*N*Nquad*Nquad, 2), dtype='float64')
     
     def __repr__(self):
         return f"{self.__class__.__name__}({self.N},{self.Nquad}," \
                f"{self.support},'{self.form}')"
     
     def generateQuadraturePoints(self, N, Nquad):
-        self.quads = (np.indices((N, N)).T.reshape(-1,2) + 0.5) / N
+        self.quads = ( np.indices((N, N), dtype='float64')
+                       .T.reshape(-1,2) + 0.5 ) / N
+        self.quadWeight = 1.0/(N*N)
     
     def cubicSpline(self, r):
         """Compute cubic spline function and its radial derivative."""
@@ -93,10 +97,10 @@ class MlsSim(object):
         
         Arguments:
         quadPoint : array([x,y]) coordinate of quadrature point;
-        indices   : (1D array) indices of nodes within support of pt.
+        indices   : array([...]) indices of nodes within support of pt.
         
         Returns:
-        phi     : (1D array) values of phi for all nodes in indices;
+        phi     : array([...]) values of phi for all nodes in indices;
         gradphi : (nx2 array) gradients of phi for all n nodes in indices.
         """
         # --------------------------------------
@@ -151,8 +155,20 @@ class MlsSim(object):
         quadPoint : array([x,y]) coordinates of quadrature point.
         
         Return:
-        indices : (1D array) of indices of nodes within support of quad point.
+        indices : array([...]) of indices of nodes within support of quad point.
         """
         distances = la.norm(quadPoint - self.nodes, axis=1)
-        indices = np.argwhere(distances < self.support).flatten()
+        indices = np.flatnonzero(distances < self.support).astype('uint32')
         return indices
+    
+    def assembleStiffnessMatrix(self):
+        pass
+        # # pre-allocate arrays for stiffness matrix triplets
+        # # these are the maximum possibly required sizes; not all will be used
+        # data = np.zeros(9*2*N*N, dtype='float64')
+        # row_ind = np.zeros(9*2*N*N, dtype='uint32')
+        # col_ind = np.zeros(9*2*N*N, dtype='uint32')
+        
+        # # assemble the triplets into the sparse stiffness matrix
+        # self.K = csr_matrix((data, (row_ind, col_ind)),
+        #                     shape=(self.nNodes, self.nNodes))
