@@ -115,9 +115,11 @@ class FemSim(object):
         self.A = csr_matrix((self.data, (self.row_ind, self.col_ind)),
                             shape=(self.n_nodes, self.n_nodes))
     
-    def solve(self):
+    def solve(self, x0=None, tol=1e-05, maxiter=None,
+              M=None, callback=None, atol=None):
         """Solve for the approximate solution."""
-        self.u, self.info = cg(self.A, self.F)
+        self.u, self.info = cg(self.A, self.F,
+                               x0, tol, maxiter, M, callback, atol)
         
     def __repr__(self):
         return f'{self.__class__.__name__}({self.N},{self.k})'
@@ -132,7 +134,7 @@ k = 1
 
 # allocate arrays for convergence testing
 start = 1
-stop = 6
+stop = 7
 nSamples = stop - start + 1
 N_array = np.logspace(start, stop, num=nSamples, base=2, dtype='int32')
 E_inf = np.empty(nSamples, dtype='float64')
@@ -151,7 +153,7 @@ for iN, N in enumerate(N_array):
     
     # Assemble the stiffness matrix and solve for the approximate solution
     femSim.assembleStiffnessMatrix()
-    femSim.solve();
+    femSim.solve()
     
 #    if (femSim.info == 0):
 #        print('Solution successful')
