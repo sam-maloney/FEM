@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import cg
 
+from timeit import default_timer
+
 class Mesh(object):
     """ Simple Mesh class for a regular triangular grid on a unit square."""        
     
@@ -140,6 +142,8 @@ N_array = np.logspace(start, stop, num=nSamples, base=2, dtype='int32')
 E_inf = np.empty(nSamples, dtype='float64')
 E_2 = np.empty(nSamples, dtype='float64')
 
+start = default_timer()
+
 # loop over N to test convergence where N is the number of
 # grid cells along one dimension, each cell forms 2 triangles
 # therefore number of triangular elements equals 2*N*N
@@ -165,9 +169,14 @@ for iN, N in enumerate(N_array):
                *np.sinh(femSim.k*np.pi*femSim.mesh.nodes[:,1]) )
     E_inf[iN] = np.linalg.norm(femSim.u - u_exact, np.inf)
     E_2[iN] = np.linalg.norm(femSim.u - u_exact)/N
+    
+    end = default_timer()
+    
     print('max error =', E_inf[iN])
     print('L2 error  =', E_2[iN])
-    
+    print(f'Elapsed time: {end-start} s')
+
+
 ##### End of loop over N #####
 
 
