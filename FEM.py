@@ -142,7 +142,7 @@ N_array = np.logspace(start, stop, num=nSamples, base=2, dtype='int32')
 E_inf = np.empty(nSamples, dtype='float64')
 E_2 = np.empty(nSamples, dtype='float64')
 
-start = default_timer()
+tick = default_timer()
 
 # loop over N to test convergence where N is the number of
 # grid cells along one dimension, each cell forms 2 triangles
@@ -170,11 +170,11 @@ for iN, N in enumerate(N_array):
     E_inf[iN] = np.linalg.norm(femSim.u - u_exact, np.inf)
     E_2[iN] = np.linalg.norm(femSim.u - u_exact)/N
     
-    end = default_timer()
+    tock = default_timer()
     
     print('max error =', E_inf[iN])
     print('L2 error  =', E_2[iN])
-    print(f'Elapsed time: {end-start} s')
+    print(f'Elapsed time: {tock-tick} s')
 
 
 ##### End of loop over N #####
