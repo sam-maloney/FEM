@@ -11,6 +11,9 @@ import scipy.linalg as la
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+# This import registers the 3D projection, but is otherwise unused.
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+
 from MlsSim import MlsSim
 
 def one(points):
@@ -37,9 +40,24 @@ def xy(points):
 def x2y2(points):
     return points[:,0]**2 * points[:,1]**2
 
-func = x2y2
+def sinx(points):
+    return np.sin(np.pi*points[:,0])
 
-mls = MlsSim(2, support=-1, form='cubic')
+def sin2x(points):
+    return np.sin(2*np.pi*points[:,0])
+
+def sinxy(points):
+    return np.sin(np.pi*(points[:,0]*points[:,1]))
+
+def sinxpy(points):
+    return np.sin(np.pi*(points[:,0]+points[:,1]))
+
+def sinxsiny(points):
+    return np.sin(np.pi*points[:,0])*np.sin(np.pi*points[:,1])
+
+func = sin2x
+
+mls = MlsSim(8, support=-1, form='cubic')
 
 N = 64
 points = ( np.indices((N+1, N+1), dtype='float64').T.reshape(-1,2) ) / N
@@ -69,25 +87,44 @@ mpl.rc('ytick', labelsize='large')
 plt.subplots_adjust(hspace = 0.3, wspace = 0.25)
 
 # plot the result
-plt.subplot(221)
-plt.tripcolor(points[:,0], points[:,1], approximate_function, shading='gouraud')
-plt.colorbar()
+# plt.subplot(221)
+# plt.tripcolor(points[:,0], points[:,1], approximate_function, shading='gouraud')
+# plt.colorbar()
+ax = plt.subplot(221, projection='3d')
+surf = ax.plot_trisurf(points[:,0], points[:,1], approximate_function,
+                       cmap='viridis', linewidth=0, antialiased=False)
+plt.colorbar(surf, shrink=0.75, aspect=7)
 plt.xlabel(r'$x$')
 plt.ylabel(r'$y$')
 plt.title('MLS Approximation')
 
 # plot the result
-plt.subplot(222)
-plt.tripcolor(points[:,0], points[:,1], exact_function, shading='gouraud')
-plt.colorbar()
+# plt.subplot(222)
+# plt.tripcolor(points[:,0], points[:,1], exact_function, shading='gouraud')
+# plt.colorbar()
+ax = plt.subplot(222, projection='3d')
+surf = ax.plot_trisurf(points[:,0], points[:,1], exact_function,
+                       cmap='viridis', linewidth=0, antialiased=False)
+plt.colorbar(surf, shrink=0.75, aspect=7)
 plt.xlabel(r'$x$')
 plt.ylabel(r'$y$')
 plt.title('Exact Function')
 
-# plot the result
-plt.subplot(223)
-plt.tripcolor(points[:,0], points[:,1], approximate_function - exact_function, shading='gouraud')
-plt.colorbar()
+# plot the error
+difference = approximate_function - exact_function
+# plt.subplot(223)
+# plt.tripcolor(points[:,0], points[:,1], difference, shading='gouraud')
+# plt.colorbar()
+ax = plt.subplot(223, projection='3d')
+surf = ax.plot_trisurf(points[:,0], points[:,1], difference,
+                       cmap='seismic', linewidth=0, antialiased=False,
+                       vmin=-np.max(np.abs(difference)),
+                       vmax=np.max(np.abs(difference)))
+# ax.axes.set_zlim3d(bottom=-np.max(np.abs(difference)),
+#                    top=np.max(np.abs(difference))) 
+plt.colorbar(surf, shrink=0.75, aspect=7)
+# plt.colorbar(surf, vmin=-np.max(np.abs(difference)),
+             # vmax=np.max(np.abs(difference)))
 plt.xlabel(r'$x$')
 plt.ylabel(r'$y$')
 plt.title('Difference')

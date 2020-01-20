@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 from MlsSim import MlsSim
 from timeit import default_timer
 
+
+def g(points, k):
+    return np.sin(k*np.pi*points[:,0]) * np.sinh(k*np.pi*points[:,1])
             
 # mls = MlsSim(10)
 # mls.assembleStiffnessMatrix()
@@ -21,7 +24,7 @@ k = 1
 
 # allocate arrays for convergence testing
 start = 1
-stop = 4
+stop = 6
 nSamples = stop - start + 1
 N_array = np.logspace(start, stop, num=nSamples, base=2, dtype='int32')
 E_inf = np.empty(nSamples, dtype='float64')
@@ -37,8 +40,8 @@ for iN, N in enumerate(N_array):
     print('N =', N)
     
     # allocate arrays and compute boundary values
-    # mlsSim = MlsSim(N, k, Nquad=1, support=2.6/N, form='quartic', method='collocation')
-    mlsSim = MlsSim(N, k, Nquad=1, support=-1, form='quartic', method='galerkin')
+    # mlsSim = MlsSim(N, g, k, Nquad=1, support=2.6/N, form='quartic', method='collocation')
+    mlsSim = MlsSim(N, g, k, Nquad=1, support=-1, form='quartic', method='galerkin')
     
     # Assemble the stiffness matrix and solve for the approximate solution
     tolerance = 1e-10
@@ -46,9 +49,9 @@ for iN, N in enumerate(N_array):
     mlsSim.solve(tol=tolerance, atol=tolerance)
     
     # compute the analytic solution and error norms
-    # u_exact = ( np.sin(mlsSim.k*np.pi*mlsSim.nodes[:,0])
-    #             *np.sinh(mlsSim.k*np.pi*mlsSim.nodes[:,1]) )
-    u_exact = mlsSim.nodes[:,0] * mlsSim.nodes[:,1]
+    u_exact = ( np.sin(mlsSim.k*np.pi*mlsSim.nodes[:,0])
+                *np.sinh(mlsSim.k*np.pi*mlsSim.nodes[:,1]) )
+    # u_exact = mlsSim.nodes[:,0] * mlsSim.nodes[:,1]
     E_inf[iN] = np.linalg.norm(mlsSim.u - u_exact, np.inf)
     E_2[iN] = np.linalg.norm(mlsSim.u - u_exact)/N
     

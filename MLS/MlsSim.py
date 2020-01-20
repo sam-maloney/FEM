@@ -15,7 +15,7 @@ import scipy.sparse.linalg as sp_la
 class MlsSim(object):
     """Class for meshless moving least squares (MLS) method."""
     
-    def __init__(self, N, k=1, Nquad=1, support=-1, form='cubic',
+    def __init__(self, N, g, k=1, Nquad=1, support=-1, form='cubic',
                  method='galerkin'):
         self.N = N
         self.k = k
@@ -30,10 +30,8 @@ class MlsSim(object):
                        .T.reshape(-1,2) ) / N
         self.isBoundaryNode = np.any(np.mod(self.nodes, 1) == 0, axis=1)
         self.nBoundaryNodes = np.count_nonzero(self.isBoundaryNode)
-        # self.g = ( np.sin (k*np.pi*self.nodes[self.isBoundaryNode,0])
-        #          * np.sinh(k*np.pi*self.nodes[self.isBoundaryNode,1]) ).round(
-        #            decimals=14)
-        self.g = self.nodes[self.isBoundaryNode,0] * self.nodes[self.isBoundaryNode,1]
+        self.boundaryValues = g(self.nodes[self.isBoundaryNode], k) \
+                               .round(decimals=14)
         self.selectSpline(form)
         self.selectMethod(method)
     
@@ -84,12 +82,12 @@ class MlsSim(object):
             self.method = method
             self.generateQuadraturePoints(self.N, self.Nquad)
             self.b = np.concatenate((np.zeros(self.nNodes,dtype='float64'),
-                                     self.g))
+                                     self.boundaryValues))
         elif method == 'collocation':
             self.assembleStiffnessMatrix = self.assembleCollocationStiffnessMatrix
             self.method = method
             self.b = np.zeros(self.nNodes,dtype='float64')
-            self.b[self.isBoundaryNode] = self.g
+            self.b[self.isBoundaryNode] = self.boundaryValues
         else:
             print(f"Error: unkown assembly method '{method}'. "
                   f"Must be one of 'galerkin' or 'collocation'.")
@@ -148,20 +146,33 @@ class MlsSim(object):
             Value of the 2nd order radial derivative at the given distance.
 
         """
+        i0 = r < 0.5
+        i1 = np.logical_xor(r < 1, i0)
         r2 = r*r
         r3 = r2*r
-        if r < 0.5:
-            w = 2.0/3.0 - 4.0*r2 + 4.0*r3
-            dwdr = -8.0*r + 12.0*r2
-            d2wdr2 = -8.0 + 24.0*r
-        elif r < 1.0:
-            w = 4.0/3.0 - 4.0*r + 4.0*r2 - 4.0/3.0*r3
-            dwdr = -4.0 + 8.0*r - 4.0*r2
-            d2wdr2 = 8.0 - 8.0*r
-        else:
-            w = 0.0
-            dwdr = 0.0
-            d2wdr2 = 0.0
+        w = np.zeros(r.size, dtype='float64')
+        dwdr = w.copy()
+        d2wdr2 = w.copy()
+        if i0.any():
+            w[i0] = 2.0/3.0 - 4.0*r2[i0] + 4.0*r3[i0]
+            dwdr[i0] = -8.0*r[i0] + 12.0*r2[i0]
+            d2wdr2[i0] = -8.0 + 24.0*r[i0]
+        if i1.any():
+            w[i1] = 4.0/3.0 - 4.0*r[i1] + 4.0*r2[i1] - 4.0/3.0*r3[i1]
+            dwdr[i1] = -4.0 + 8.0*r[i1] - 4.0*r2[i1]
+            d2wdr2[i1] = 8.0 - 8.0*r[i1]
+        # if r < 0.5:
+        #     w = 2.0/3.0 - 4.0*r2 + 4.0*r3
+        #     dwdr = -8.0*r + 12.0*r2
+        #     d2wdr2 = -8.0 + 24.0*r
+        # elif r < 1.0:
+        #     w = 4.0/3.0 - 4.0*r + 4.0*r2 - 4.0/3.0*r3
+        #     dwdr = -4.0 + 8.0*r - 4.0*r2
+        #     d2wdr2 = 8.0 - 8.0*r
+        # else:
+        #     w = 0.0
+        #     dwdr = 0.0
+        #     d2wdr2 = 0.0
         return w, dwdr, d2wdr2
     
     def quarticSpline(self, r):
@@ -182,17 +193,28 @@ class MlsSim(object):
             Value of the 2nd order radial derivative at the given distance.
 
         """
-        if r < 1.0:
-            r2 = r*r
-            r3 = r2*r
-            r4 = r2*r2
-            w = 1.0 - 6.0*r2 + 8.0*r3 - 3.0*r4
-            dwdr = -12.0*r + 24.0*r2 - 12.0*r3
-            d2wdr2 = -12.0 + 48.0*r - 36.0*r2
-        else:
-            w = 0.0
-            dwdr = 0.0
-            d2wdr2 = 0.0
+        i0 = r < 1
+        r2 = r*r
+        r3 = r2*r
+        r4 = r2*r2
+        w = np.zeros(r.size, dtype='float64')
+        dwdr = w.copy()
+        d2wdr2 = w.copy()
+        if i0.any():
+            w[i0] = 1.0 - 6.0*r2[i0] + 8.0*r3[i0] - 3.0*r4[i0]
+            dwdr[i0] = -12.0*r[i0] + 24.0*r2[i0] - 12.0*r3[i0]
+            d2wdr2[i0] = -12.0 + 48.0*r[i0] - 36.0*r2[i0]
+        # if r < 1.0:
+        #     r2 = r*r
+        #     r3 = r2*r
+        #     r4 = r2*r2
+        #     w = 1.0 - 6.0*r2 + 8.0*r3 - 3.0*r4
+        #     dwdr = -12.0*r + 24.0*r2 - 12.0*r3
+        #     d2wdr2 = -12.0 + 48.0*r - 36.0*r2
+        # else:
+        #     w = 0.0
+        #     dwdr = 0.0
+        #     d2wdr2 = 0.0
         return w, dwdr, d2wdr2
     
     def weightFunction(self, point, nodePoint):
@@ -216,7 +238,7 @@ class MlsSim(object):
 
         """
         displacement = (point - nodePoint)/self.support
-        distance = la.norm(displacement)
+        distance = np.array(la.norm(displacement))
         w, dwdr, d2wdr2 = self.spline(distance)
         if distance > 1e-14:
             gradr = displacement/(distance*self.support)
@@ -252,21 +274,25 @@ class MlsSim(object):
         # --------------------------------------
         #     compute the moment matrix A(x)
         # --------------------------------------
-        A = np.zeros((3,3), dtype='float64')
-        w = np.empty((len(indices)), dtype='float64')
-        p = np.empty((len(indices), 3), dtype='float64')
-        for i, node in enumerate(self.nodes[indices]):
-            wi = self.weightFunction(point, node)[0]
-            pi = np.concatenate(([1.0], node))
-            pTp = np.outer(pi, pi)
-            A += wi*pTp
-            w[i] = wi
-            p[i] = pi
+        # A = np.zeros((3,3), dtype='float64')
+        # w = np.empty((len(indices)), dtype='float64')
+        # p = np.empty((len(indices), 3), dtype='float64')
+        # for i, node in enumerate(self.nodes[indices]):
+        #     wi = self.spline(la.norm((point - node))/self.support)[0]
+        #     pi = np.concatenate(([1.0], node))
+        #     pTp = np.outer(pi, pi)
+        #     A += wi*pTp
+        #     w[i] = wi
+        #     p[i] = pi
+        distances = la.norm(point - self.nodes[indices], axis=1)/self.support
+        w = self.spline(distances)[0]
+        p = np.hstack((np.ones((len(indices),1)), self.nodes[indices]))
+        A = w*p.T@p
         # --------------------------------------
         #      compute  matrix c(x) and phi
         # --------------------------------------
-        # A(x)c(x)   = p(x)
-        # Backward substitutions, once for c(x) using LU factorization for A
+        # A(x)c(x) = p(x)
+        # Backward substitution for c(x) using LU factorization for A
         p_x = np.concatenate(([1.0], point))
         lu, piv = la.lu_factor(A, overwrite_a=True, check_finite=check)
         c = la.lu_solve((lu, piv), p_x, overwrite_b=True, check_finite=check)
