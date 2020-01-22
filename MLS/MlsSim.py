@@ -117,11 +117,11 @@ class MlsSim(object):
                            .T.reshape(-1,2) + 0.5 ) / N
             # offset = 0.288675134594812882254574390251/N # 0.5/sqrt(3)/N
             offset = 0.25/N
-            self.quads = np.concatenate( (
+            self.quads = np.concatenate((
                 tmp - offset,
                 tmp + offset,
                 np.hstack((tmp[:,0:1] + offset, tmp[:,1:2] - offset)),
-                np.hstack((tmp[:,0:1] - offset, tmp[:,1:2] + offset))))
+                np.hstack((tmp[:,0:1] - offset, tmp[:,1:2] + offset)) ))
             self.quadWeight = 0.25/(N*N)
             self.nQuads = len(self.quads)
         else:
@@ -238,16 +238,22 @@ class MlsSim(object):
 
         """
         displacement = (point - nodePoint)/self.support
-        distance = np.array(la.norm(displacement))
+        distance = np.array(la.norm(displacement), axis=1)
         w, dwdr, d2wdr2 = self.spline(distance)
-        if distance > 1e-14:
-            gradr = displacement/(distance*self.support)
-            gradw = dwdr * gradr
-            grad2w = d2wdr2 * gradr*gradr
-        else:
-            gradw = np.zeros(2,dtype='float64')
-            gradr = np.repeat(1.0/(np.sqrt(2)*self.support), 2)
-            grad2w = d2wdr2 * gradr*gradr
+        i0 = distance > 1e-14
+        gradr = np.full(point.shape, np.sqrt(0.5)/self.support, dtype='float64')
+        gradr[i0] = displacement[i0] / \
+                    (distance[i0]*self.support).reshape((len(point),1))
+        gradw = dwdr * gradr
+        grad2w = d2wdr2 * gradr*gradr
+        # if distance > 1e-14:
+        #     gradr = displacement/(distance*self.support)
+        #     gradw = dwdr * gradr
+        #     grad2w = d2wdr2 * gradr*gradr
+        # else:
+        #     gradw = np.zeros(2,dtype='float64')
+        #     gradr = np.full(2, np.sqrt(0.5)/self.support, dtype='float64')
+        #     grad2w = d2wdr2 * gradr*gradr
         return w, gradw, grad2w
     
     def shapeFunctions0(self, point, indices, check = False):
@@ -318,7 +324,7 @@ class MlsSim(object):
         -------
         phi : numpy.array([...], dtype='float64')
             Values of phi for all nodes in indices.
-        gradphi : nx2 ndarray, dtype='float64'
+        gradphi : nx2 numpy.ndarray, dtype='float64'
             Gradients of phi for all nodes in indices. [[dx1,dy1],[dx2,dy2]...]
 
         """
@@ -341,6 +347,10 @@ class MlsSim(object):
             w[i] = wi
             p[i] = pi
             gradw[i] = gradwi
+        # distances = la.norm(point - self.nodes[indices], axis=1)/self.support
+        # w, gradw = self.spline(distances)[0,2]
+        # p = np.hstack((np.ones((len(indices),1)), self.nodes[indices]))
+        # A = w*p.T@p
         # --------------------------------------
         #         compute  matrix c(x)
         # --------------------------------------
@@ -381,7 +391,7 @@ class MlsSim(object):
         -------
         phi : numpy.array([...], dtype='float64')
             Values of phi for all nodes in indices.
-        grad2phi : nx2 ndarray, dtype='float64'
+        grad2phi : nx2 numpy.ndarray, dtype='float64'
             2nd derivatives of phi for all nodes in indices.
             [[dxx1,dyy1],[dxx2,dyy2]...]
 
@@ -592,8 +602,7 @@ class MlsSim(object):
             self.u[iN] = uTmp[indices]@phi
     
     def cond(self):
-        """Computes the condition number of the stiffness mat+
-        rix K.
+        """Computes the condition number of the stiffness matrix K.
 
         Returns
         -------
