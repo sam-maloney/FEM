@@ -12,15 +12,20 @@ import matplotlib.pyplot as plt
 from MlsSim import MlsSim
 from timeit import default_timer
 
-
-def g(points, k):
+# wavenumber for boundary function u(x,1) = g(x,y) = sinh(k*pi)
+k = 1
+def g(points):
+    k = 1
     return np.sin(k*np.pi*points[:,0]) * np.sinh(k*np.pi*points[:,1])
             
 # mls = MlsSim(10)
 # mls.assembleStiffnessMatrix()
-        
-# wavenumber for boundary function u(x,1) = g(x,y) = sinh(k*pi)
-k = 1
+
+
+Nquad=1
+support=3.5
+form='cubic'
+method='galerkin'
 
 # allocate arrays for convergence testing
 start = 1
@@ -40,8 +45,7 @@ for iN, N in enumerate(N_array):
     print('N =', N)
     
     # allocate arrays and compute boundary values
-    # mlsSim = MlsSim(N, g, k, Nquad=1, support=2.6/N, form='quartic', method='collocation')
-    mlsSim = MlsSim(N, g, k, Nquad=1, support=-1, form='quartic', method='galerkin')
+    mlsSim = MlsSim(N, g, Nquad, support, form, method)
     
     # Assemble the stiffness matrix and solve for the approximate solution
     tolerance = 1e-10
@@ -49,9 +53,7 @@ for iN, N in enumerate(N_array):
     mlsSim.solve(tol=tolerance, atol=tolerance)
     
     # compute the analytic solution and error norms
-    u_exact = ( np.sin(mlsSim.k*np.pi*mlsSim.nodes[:,0])
-                *np.sinh(mlsSim.k*np.pi*mlsSim.nodes[:,1]) )
-    # u_exact = mlsSim.nodes[:,0] * mlsSim.nodes[:,1]
+    u_exact = g(mlsSim.nodes)
     E_inf[iN] = np.linalg.norm(mlsSim.u - u_exact, np.inf)
     E_2[iN] = np.linalg.norm(mlsSim.u - u_exact)/N
     
@@ -62,7 +64,6 @@ for iN, N in enumerate(N_array):
     print('max error =', E_inf[iN])
     print('L2 error  =', E_2[iN])
     print(f'Elapsed time: {end_time-start_time} s')
-    
     
 ##### End of loop over N #####
     
@@ -85,6 +86,7 @@ plt.colorbar()
 plt.xlabel(r'$x$')
 plt.ylabel(r'$y$')
 plt.title('Final MLS solution')
+plt.margins(0,0)
 
 # plot analytic solution
 plt.subplot(222)
@@ -93,6 +95,7 @@ plt.colorbar()
 plt.xlabel(r'$x$')
 plt.ylabel(r'$y$')
 plt.title('Analytic solution')
+plt.margins(0,0)
 
 # plot the error convergence
 plt.subplot(223)
@@ -101,7 +104,7 @@ plt.loglog(N_array, E_2, '.-', label=r'$E_2$')
 plt.minorticks_off()
 plt.xticks(N_array, N_array)
 plt.xlabel(r'$N$')
-plt.ylabel(r'Magnitude of Error Norm')
+plt.ylabel(r'Magnitudesupport of Error Norm')
 plt.title('MLS Error Norms')
 plt.legend(fontsize='x-large')
 ## add labels for order of convergence to the same plot
@@ -138,6 +141,6 @@ plt.ylabel(r'Intra-step Order of Convergence')
 plt.title('MLS Order of Accuracy')
 plt.legend(fontsize='x-large')
 
-# plt.margins(0,0)
-# plt.savefig("MLS_2Q2_quartic.pdf", bbox_inches = 'tight',
-#     pad_inches = 0)
+plt.margins(0,0)
+plt.savefig(f"MLS_{k}k_{Nquad}Q_{mlsSim.support*mlsSim.N}S_{form}_{method}.pdf",
+    bbox_inches = 'tight', pad_inches = 0)

@@ -16,6 +16,10 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 from MlsSim import MlsSim
 
+def g(points):
+    k = 1
+    return np.sin(k*np.pi*points[:,0]) * np.sinh(k*np.pi*points[:,1])
+
 def one(points):
     return np.ones(len(points), dtype='float64')
 
@@ -57,7 +61,7 @@ def sinxsiny(points):
 
 func = sin2x
 
-mls = MlsSim(8, support=-1, form='cubic')
+mls = MlsSim(N=8, g=g, support=-1, form='cubic')
 
 N = 64
 points = ( np.indices((N+1, N+1), dtype='float64').T.reshape(-1,2) ) / N

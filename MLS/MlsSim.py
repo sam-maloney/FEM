@@ -15,52 +15,34 @@ import scipy.sparse.linalg as sp_la
 class MlsSim(object):
     """Class for meshless moving least squares (MLS) method."""
     
-    def __init__(self, N, g, k=1, Nquad=1, support=-1, form='cubic',
+    def __init__(self, N, g, Nquad=1, support=-1, form='cubic',
                  method='galerkin'):
         self.N = N
-        self.k = k
         self.nCells = N*N
         self.nNodes = (N+1)*(N+1)
         self.Nquad = Nquad
         if support > 0:
-            self.support = support
-        else: # if support is negative, set to default 1.4X grid spacing
-            self.support = 1.4/(N)
+            self.support = support/N
+        else: # if support is negative, set to default grid spacing
+            if method == 'galerkin':
+                self.support = 1.4/N
+            elif method == 'collocation':
+                self.support = 2.6/N
+            else: # if method is unkown
+                self.support = 1.4/N
         self.nodes = ( np.indices((N+1, N+1), dtype='float64')
                        .T.reshape(-1,2) ) / N
         self.isBoundaryNode = np.any(np.mod(self.nodes, 1) == 0, axis=1)
         self.nBoundaryNodes = np.count_nonzero(self.isBoundaryNode)
-        self.boundaryValues = g(self.nodes[self.isBoundaryNode], k) \
+        self.boundaryValues = g(self.nodes[self.isBoundaryNode]) \
                                .round(decimals=14)
+        self.g = g
         self.selectSpline(form)
         self.selectMethod(method)
     
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.N},{self.k}," \
+        return f"{self.__class__.__name__}({self.N},{self.g}," \
                f"{self.Nquad},{self.support},'{self.form}','{self.method}')"
-    
-    def selectSpline(self, form):
-        """Register the 'self.spline' method to the correct order computation.
-        
-        Parameters
-        ----------
-        form : string
-            Must be either 'cubic' or 'quartic'.
-
-        Returns
-        -------
-        None.
-
-        """
-        if form == 'cubic':
-            self.spline = self.cubicSpline
-            self.form = form
-        elif form == 'quartic':
-            self.spline = self.quarticSpline
-            self.form = form
-        else:
-            print(f"Error: unkown spline form '{form}'. "
-                  f"Must be one of 'cubic' or 'quartic'.")
     
     def selectMethod(self, method):
         """Register the 'self.assembleStiffnesMatrix' method.
@@ -128,8 +110,97 @@ class MlsSim(object):
             print(f"Error: bad Nquad value of '{Nquad}'. "
                   f"Must be either 1 or 2.")
     
-    def cubicSpline(self, r):
+    def selectSpline(self, form):
+        """Register the 'self.spline' method to the correct order computation.
+        
+        Parameters
+        ----------
+        form : string
+            Must be either 'cubic' or 'quartic'.
+
+        Returns
+        -------
+        None.
+
+        """
+        self.form = form
+        if form == 'cubic':
+            self.spline0 = self.cubicSpline0
+            self.spline1 = self.cubicSpline1
+            self.spline2 = self.cubicSpline2
+        elif form == 'quartic':
+            self.spline0 = self.quarticSpline0
+            self.spline1 = self.quarticSpline1
+            self.spline2 = self.quarticSpline2
+        else:
+            print(f"Error: unkown spline form '{form}'. "
+                  f"Must be one of 'cubic' or 'quartic'.")
+    
+    def cubicSpline0(self, r):
+        """Compute cubic spline function value.
+
+        Parameters
+        ----------
+        r : float
+            Distance from evaluation point to node point.
+
+        Returns
+        -------
+        w : float
+            Value of the cubic spline function at the given distance.
+
+        """
+        i0 = r < 0.5
+        i1 = np.logical_xor(r < 1, i0)
+        w = np.zeros(r.size, dtype='float64')
+        if i0.any():
+            r1 = r[i0]
+            r2 = r1*r1
+            r3 = r2*r1
+            w[i0] = 2.0/3.0 - 4.0*r2 + 4.0*r3
+        if i1.any():
+            r1 = r[i1]
+            r2 = r1*r1
+            r3 = r2*r1
+            w[i1] = 4.0/3.0 - 4.0*r1 + 4.0*r2 - 4.0/3.0*r3
+        return w
+    
+    def cubicSpline1(self, r):
         """Compute cubic spline function and its radial derivative.
+
+        Parameters
+        ----------
+        r : float
+            Distance from evaluation point to node point.
+
+        Returns
+        -------
+        w : float
+            Value of the cubic spline function at the given distance.
+        dwdr : float
+            Value of the radial derivative at the given distance.
+
+        """
+        i0 = r < 0.5
+        i1 = np.logical_xor(r < 1, i0)
+        w = np.zeros(r.size, dtype='float64')
+        dwdr = w.copy()
+        if i0.any():
+            r1 = r[i0]
+            r2 = r1*r1
+            r3 = r2*r1
+            w[i0] = 2.0/3.0 - 4.0*r2 + 4.0*r3
+            dwdr[i0] = -8.0*r1 + 12.0*r2
+        if i1.any():
+            r1 = r[i1]
+            r2 = r1*r1
+            r3 = r2*r1
+            w[i1] = 4.0/3.0 - 4.0*r1 + 4.0*r2 - 4.0/3.0*r3
+            dwdr[i1] = -4.0 + 8.0*r1 - 4.0*r2
+        return w, dwdr
+    
+    def cubicSpline2(self, r):
+        """Compute cubic spline function and its radial derivatives.
 
         Parameters
         ----------
@@ -148,113 +219,108 @@ class MlsSim(object):
         """
         i0 = r < 0.5
         i1 = np.logical_xor(r < 1, i0)
-        r2 = r*r
-        r3 = r2*r
         w = np.zeros(r.size, dtype='float64')
         dwdr = w.copy()
         d2wdr2 = w.copy()
         if i0.any():
-            w[i0] = 2.0/3.0 - 4.0*r2[i0] + 4.0*r3[i0]
-            dwdr[i0] = -8.0*r[i0] + 12.0*r2[i0]
-            d2wdr2[i0] = -8.0 + 24.0*r[i0]
+            r1 = r[i0]
+            r2 = r1*r1
+            r3 = r2*r1
+            w[i0] = 2.0/3.0 - 4.0*r2 + 4.0*r3
+            dwdr[i0] = -8.0*r1 + 12.0*r2
+            d2wdr2[i0] = -8.0 + 24.0*r1
         if i1.any():
-            w[i1] = 4.0/3.0 - 4.0*r[i1] + 4.0*r2[i1] - 4.0/3.0*r3[i1]
-            dwdr[i1] = -4.0 + 8.0*r[i1] - 4.0*r2[i1]
-            d2wdr2[i1] = 8.0 - 8.0*r[i1]
-        # if r < 0.5:
-        #     w = 2.0/3.0 - 4.0*r2 + 4.0*r3
-        #     dwdr = -8.0*r + 12.0*r2
-        #     d2wdr2 = -8.0 + 24.0*r
-        # elif r < 1.0:
-        #     w = 4.0/3.0 - 4.0*r + 4.0*r2 - 4.0/3.0*r3
-        #     dwdr = -4.0 + 8.0*r - 4.0*r2
-        #     d2wdr2 = 8.0 - 8.0*r
-        # else:
-        #     w = 0.0
-        #     dwdr = 0.0
-        #     d2wdr2 = 0.0
+            r1 = r[i1]
+            r2 = r1*r1
+            r3 = r2*r1
+            w[i1] = 4.0/3.0 - 4.0*r1 + 4.0*r2 - 4.0/3.0*r3
+            dwdr[i1] = -4.0 + 8.0*r1 - 4.0*r2
+            d2wdr2[i1] = 8.0 - 8.0*r1
         return w, dwdr, d2wdr2
     
-    def quarticSpline(self, r):
-        """Compute quartic spline function and its radial derivative.
+    def quarticSpline0(self, r):
+        """Compute quartic spline function values.
 
         Parameters
         ----------
-        r : float
-            Distance from evaluation point to node point.
+        r : numpy.array([...], dtype='float64')
+            Distances from evaluation points to node point.
 
         Returns
         -------
-        w : float
-            Value of the quartic spline function at the given distance.
-        dwdr : float
-            Value of the radial derivative at the given distance.
-        d2wdr2 : float
-            Value of the 2nd order radial derivative at the given distance.
+        w : numpy.array([...], dtype='float64')
+            Values of the quartic spline function at the given distances.
 
         """
         i0 = r < 1
-        r2 = r*r
-        r3 = r2*r
-        r4 = r2*r2
+        w = np.zeros(r.size, dtype='float64')
+        if i0.any():
+            r1 = r[i0]
+            r2 = r1*r1
+            r3 = r2*r1
+            r4 = r2*r2
+            w[i0] = 1.0 - 6.0*r2 + 8.0*r3 - 3.0*r4
+        return w
+    
+    def quarticSpline1(self, r):
+        """Compute quartic spline function and radial derivative values.
+
+        Parameters
+        ----------
+        r : numpy.array([...], dtype='float64')
+            Distances from evaluation points to node point.
+
+        Returns
+        -------
+        w : numpy.array([...], dtype='float64')
+            Values of the quartic spline function at the given distances.
+        dwdr : numpy.array([...], dtype='float64')
+            Values of the radial derivative at the given distances.
+
+        """
+        i0 = r < 1
+        w = np.zeros(r.size, dtype='float64')
+        dwdr = w.copy()
+        if i0.any():
+            r1 = r[i0]
+            r2 = r1*r1
+            r3 = r2*r1
+            r4 = r2*r2
+            w[i0] = 1.0 - 6.0*r2 + 8.0*r3 - 3.0*r4
+            dwdr[i0] = -12.0*r1 + 24.0*r2 - 12.0*r3
+        return w, dwdr
+    
+    def quarticSpline2(self, r):
+        """Compute quartic spline function and radial derivative values.
+
+        Parameters
+        ----------
+        r : numpy.array([...], dtype='float64')
+            Distances from evaluation points to node point.
+
+        Returns
+        -------
+        w : numpy.array([...], dtype='float64')
+            Values of the quartic spline function at the given distances.
+        dwdr : numpy.array([...], dtype='float64')
+            Values of the radial derivative at the given distances.
+        d2wdr2 : numpy.array([...], dtype='float64')
+            Values of the 2nd order radial derivative at the given distances.
+
+        """
+        i0 = r < 1
         w = np.zeros(r.size, dtype='float64')
         dwdr = w.copy()
         d2wdr2 = w.copy()
         if i0.any():
-            w[i0] = 1.0 - 6.0*r2[i0] + 8.0*r3[i0] - 3.0*r4[i0]
-            dwdr[i0] = -12.0*r[i0] + 24.0*r2[i0] - 12.0*r3[i0]
-            d2wdr2[i0] = -12.0 + 48.0*r[i0] - 36.0*r2[i0]
-        # if r < 1.0:
-        #     r2 = r*r
-        #     r3 = r2*r
-        #     r4 = r2*r2
-        #     w = 1.0 - 6.0*r2 + 8.0*r3 - 3.0*r4
-        #     dwdr = -12.0*r + 24.0*r2 - 12.0*r3
-        #     d2wdr2 = -12.0 + 48.0*r - 36.0*r2
-        # else:
-        #     w = 0.0
-        #     dwdr = 0.0
-        #     d2wdr2 = 0.0
+            r1 = r[i0]
+            r2 = r1*r1
+            r3 = r2*r1
+            r4 = r2*r2
+            w[i0] = 1.0 - 6.0*r2 + 8.0*r3 - 3.0*r4
+            dwdr[i0] = -12.0*r1 + 24.0*r2 - 12.0*r3
+            d2wdr2[i0] = -12.0 + 48.0*r1 - 36.0*r2
         return w, dwdr, d2wdr2
-    
-    def weightFunction(self, point, nodePoint):
-        """Compute weight function and gradient using cubic or quartic spline.        
-
-        Parameters
-        ----------
-        point : numpy.array([x,y], dtype='float64')
-            Coordinates of evaluation point at which w is evaluated.
-        nodePoint : numpy.array([x,y], dtype='float64')
-            Coordinates of node I.
-
-        Returns
-        -------
-        w : float
-            Value of the weight function at the evaluation point.
-        gradw : numpy.array([dx,dy], dtype='float64')
-            Gradient of weight function at the evaluation point.
-        grad2w : numpy.array([dxx,dyy], dtype='float64')
-            2nd order derivatives of weight function at the evaluation point.
-
-        """
-        displacement = (point - nodePoint)/self.support
-        distance = np.array(la.norm(displacement), axis=1)
-        w, dwdr, d2wdr2 = self.spline(distance)
-        i0 = distance > 1e-14
-        gradr = np.full(point.shape, np.sqrt(0.5)/self.support, dtype='float64')
-        gradr[i0] = displacement[i0] / \
-                    (distance[i0]*self.support).reshape((len(point),1))
-        gradw = dwdr * gradr
-        grad2w = d2wdr2 * gradr*gradr
-        # if distance > 1e-14:
-        #     gradr = displacement/(distance*self.support)
-        #     gradw = dwdr * gradr
-        #     grad2w = d2wdr2 * gradr*gradr
-        # else:
-        #     gradw = np.zeros(2,dtype='float64')
-        #     gradr = np.full(2, np.sqrt(0.5)/self.support, dtype='float64')
-        #     grad2w = d2wdr2 * gradr*gradr
-        return w, gradw, grad2w
     
     def shapeFunctions0(self, point, indices, check = False):
         """Compute shape function at quad point for all nodes in its support.
@@ -280,18 +346,8 @@ class MlsSim(object):
         # --------------------------------------
         #     compute the moment matrix A(x)
         # --------------------------------------
-        # A = np.zeros((3,3), dtype='float64')
-        # w = np.empty((len(indices)), dtype='float64')
-        # p = np.empty((len(indices), 3), dtype='float64')
-        # for i, node in enumerate(self.nodes[indices]):
-        #     wi = self.spline(la.norm((point - node))/self.support)[0]
-        #     pi = np.concatenate(([1.0], node))
-        #     pTp = np.outer(pi, pi)
-        #     A += wi*pTp
-        #     w[i] = wi
-        #     p[i] = pi
-        distances = la.norm(point - self.nodes[indices], axis=1)/self.support
-        w = self.spline(distances)[0]
+        distances = la.norm(point - self.nodes[indices], axis=-1)/self.support
+        w = self.spline0(distances)
         p = np.hstack((np.ones((len(indices),1)), self.nodes[indices]))
         A = w*p.T@p
         # --------------------------------------
@@ -331,26 +387,18 @@ class MlsSim(object):
         # --------------------------------------
         #     compute the moment matrix A(x)
         # --------------------------------------
-        A = np.zeros((3,3), dtype='float64')
-        dAdx = np.zeros((3,3), dtype='float64')
-        dAdy = np.zeros((3,3), dtype='float64')
-        w = np.empty((len(indices)), dtype='float64')
-        p = np.empty((len(indices), 3), dtype='float64')
-        gradw = np.empty((len(indices), 2), dtype='float64')
-        for i, node in enumerate(self.nodes[indices]):
-            wi, gradwi = self.weightFunction(point, node)[0:2]
-            pi = np.concatenate(([1.0], node))
-            pTp = np.outer(pi, pi)
-            A += wi*pTp
-            dAdx += gradwi[0]*pTp
-            dAdy += gradwi[1]*pTp
-            w[i] = wi
-            p[i] = pi
-            gradw[i] = gradwi
-        # distances = la.norm(point - self.nodes[indices], axis=1)/self.support
-        # w, gradw = self.spline(distances)[0,2]
-        # p = np.hstack((np.ones((len(indices),1)), self.nodes[indices]))
-        # A = w*p.T@p
+        displacement = (point - self.nodes[indices])/self.support
+        distance = np.array(la.norm(displacement, axis=-1))
+        w, dwdr = self.spline1(distance)
+        i0 = distance > 1e-14
+        gradr = np.full(self.nodes[indices].shape, np.sqrt(0.5)/self.support, dtype='float64')
+        gradr[i0] = displacement[i0] / \
+                    (distance[i0]*self.support).reshape((-1,1))
+        gradw = dwdr.reshape((-1,1)) * gradr
+        p = np.hstack((np.ones((len(indices),1)), self.nodes[indices]))
+        A = w*p.T@p
+        dAdx = gradw[:,0]*p.T@p
+        dAdy = gradw[:,1]*p.T@p
         # --------------------------------------
         #         compute  matrix c(x)
         # --------------------------------------
@@ -399,25 +447,21 @@ class MlsSim(object):
         # --------------------------------------
         #     compute the moment matrix A(x)
         # --------------------------------------
-        A = np.zeros((3,3), dtype='float64')
-        dAdx = np.zeros((3,3), dtype='float64')
-        dAdy = np.zeros((3,3), dtype='float64')
-        d2Adx2 = np.zeros((3,3), dtype='float64')
-        d2Ady2 = np.zeros((3,3), dtype='float64')
-        w = np.empty((len(indices)), dtype='float64')
-        gradw = np.empty((len(indices), 2), dtype='float64')
-        grad2w = np.empty((len(indices), 2), dtype='float64')
-        for i, node in enumerate(self.nodes[indices]):
-            wi, gradwi, grad2wi = self.weightFunction(point, node)
-            pTp = np.outer([1.0, node[0], node[1]], [1.0, node[0], node[1]])
-            A += wi*pTp
-            dAdx += gradwi[0]*pTp
-            dAdy += gradwi[1]*pTp
-            d2Adx2 += grad2wi[0]*pTp
-            d2Ady2 += grad2wi[1]*pTp
-            w[i] = wi
-            gradw[i,:] = gradwi
-            grad2w[i,:] = grad2wi
+        displacement = (point - self.nodes[indices])/self.support
+        distance = np.array(la.norm(displacement, axis=-1))
+        w, dwdr, d2wdr2 = self.spline2(distance)
+        i0 = distance > 1e-14
+        gradr = np.full(self.nodes[indices].shape, np.sqrt(0.5)/self.support, dtype='float64')
+        gradr[i0] = displacement[i0] / \
+                    (distance[i0]*self.support).reshape((-1,1))
+        gradw = dwdr.reshape((-1,1)) * gradr
+        grad2w = d2wdr2.reshape((-1,1)) * gradr*gradr
+        p = np.hstack((np.ones((len(indices),1)), self.nodes[indices]))
+        A = w*p.T@p
+        dAdx = gradw[:,0]*p.T@p
+        dAdy = gradw[:,1]*p.T@p
+        d2Adx2 = grad2w[:,0]*p.T@p
+        d2Ady2 = grad2w[:,1]*p.T@p
         # --------------------------------------
         #         compute  matrix c(x)
         # --------------------------------------
