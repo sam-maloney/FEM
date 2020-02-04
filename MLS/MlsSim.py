@@ -13,10 +13,43 @@ import scipy.sparse.linalg as sp_la
 
 
 class MlsSim(object):
-    """Class for meshless moving least squares (MLS) method."""
+    """Class for meshless moving least squares (MLS) method.
+    
+    Parameters
+    ----------
+    N : integer
+        Number of grid cells along one dimension.
+        Must be greater than 0.
+    g : function object
+        Function defining the solution Dirichlet values along the boundary.
+        The object must take an nx2 numpy.ndarray of points and return a
+        1D numpy.ndarray of size n for the function values at those points.
+    Nquad : integer, optional
+        Number of quadrature points in each grid cell along one dimension.
+        Must be either 1 or 2.
+        The default is 1.
+    support : float, optional
+        The size of the shape function support, given as a multiple of the
+        grid spacing for the given N if the value is positive.
+        Supplying a negative value leads to default support sizes being used,
+        namely 1.4 for the Galerkin method or 2.6 for the collocation method.
+        The default is -1.
+    form : string, optional
+        Form of the spline used for the kernel weighting function.
+        Must be either 'cubic' or 'quartic'.
+        The default is 'cubic'.
+    method : string, optional
+        Method used for assembling the stiffness matrix.
+        Must be either 'galerkin' or 'collocation'.
+        The default is 'galerkin'.
+    quadrature : string, optional
+        Distribution of quadrature points in each cell.
+        Must be either 'uniform' or 'gaussian'.
+        The default is 'uniform'.
+    """
     
     def __init__(self, N, g, Nquad=1, support=-1, form='cubic',
-                 method='galerkin'):
+                 method='galerkin', quadrature='uniform'):
         self.N = N
         self.nCells = N*N
         self.nNodes = (N+1)*(N+1)
@@ -38,21 +71,23 @@ class MlsSim(object):
                                .round(decimals=14)
         self.g = g
         self.selectSpline(form)
-        self.selectMethod(method)
+        self.selectMethod(method, quadrature)
     
     def __repr__(self):
         return f"{self.__class__.__name__}({self.N},{self.g}," \
                f"{self.Nquad},{self.support},'{self.form}','{self.method}')"
     
-    def selectMethod(self, method):
+    def selectMethod(self, method, quadrature):
         """Register the 'self.assembleStiffnesMatrix' method.
         
         Parameters
         ----------
         method : string
+            Method used for assembling the stiffness matrix.
             Must be either 'galerkin' or 'collocation'.
-        Nquad : integer in [1,2]
-            Number of quadrature points in each grid cell along one dimension.
+        quadrature : string
+            Distribution of quadrature points in each cell.
+            Must be either 'uniform' or 'gaussian'.
 
         Returns
         -------
@@ -62,7 +97,7 @@ class MlsSim(object):
         if method == 'galerkin':
             self.assembleStiffnessMatrix = self.assembleGalerkinStiffnessMatrix
             self.method = method
-            self.generateQuadraturePoints(self.N, self.Nquad)
+            self.generateQuadraturePoints(quadrature)
             self.b = np.concatenate((np.zeros(self.nNodes,dtype='float64'),
                                      self.boundaryValues))
         elif method == 'collocation':
@@ -74,48 +109,51 @@ class MlsSim(object):
             print(f"Error: unkown assembly method '{method}'. "
                   f"Must be one of 'galerkin' or 'collocation'.")
     
-    def generateQuadraturePoints(self, N, Nquad):
-        """Compute list of (x,y) quadrature points for Galerkin integration.
+    def generateQuadraturePoints(self, quadrature):
+        """Compute array of quadrature points for Galerkin integration.
 
         Parameters
         ----------
-        N : integer
-            Number of grid cells along one dimension.
-        Nquad : integer in [1,2]
-            Number of quadrature points in each grid cell along one dimension.
+        quadrature : string
+            Distribution of quadrature points in each cell.
+            Must be either 'uniform' or 'gaussian'.
 
         Returns
         -------
         None.
 
         """
-        if Nquad == 1:
-            self.quads = ( np.indices((N, N), dtype='float64')
-                           .T.reshape(-1,2) + 0.5 ) / N
-            self.quadWeight = 1.0/(N*N)
+        self.quadrature = quadrature
+        if self.Nquad == 1:
+            self.quads = ( np.indices((self.N, self.N), dtype='float64')
+                           .T.reshape(-1,2) + 0.5 ) / self.N
+            self.quadWeight = 1.0/(self.N*self.N)
             self.nQuads = len(self.quads)
-        elif Nquad == 2:
-            tmp = ( np.indices((N, N), dtype='float64')
-                           .T.reshape(-1,2) + 0.5 ) / N
-            # offset = 0.288675134594812882254574390251/N # 0.5/sqrt(3)/N
-            offset = 0.25/N
+        elif self.Nquad == 2:
+            tmp = ( np.indices((self.N, self.N), dtype='float64')
+                           .T.reshape(-1,2) + 0.5 ) / self.N
+            if quadrature == 'uniform':
+                offset = 0.25/self.N
+            elif quadrature == 'gaussian':
+                offset = 0.5/(np.sqrt(3.0)*self.N)
             self.quads = np.concatenate((
                 tmp - offset,
                 tmp + offset,
                 np.hstack((tmp[:,0:1] + offset, tmp[:,1:2] - offset)),
                 np.hstack((tmp[:,0:1] - offset, tmp[:,1:2] + offset)) ))
-            self.quadWeight = 0.25/(N*N)
+            self.quadWeight = 0.25/(self.N*self.N)
             self.nQuads = len(self.quads)
         else:
-            print(f"Error: bad Nquad value of '{Nquad}'. "
+            print(f"Error: bad Nquad value of '{self.Nquad}'. "
                   f"Must be either 1 or 2.")
     
     def selectSpline(self, form):
-        """Register the 'self.spline' method to the correct order computation.
+        """Register the 'self.spline' method to the correct order kernel.
         
         Parameters
         ----------
         form : string
+            Form of the spline used for the kernel weighting function.
             Must be either 'cubic' or 'quartic'.
 
         Returns
@@ -141,13 +179,13 @@ class MlsSim(object):
 
         Parameters
         ----------
-        r : float
-            Distance from evaluation point to node point.
+        r : numpy.array([...], dtype='float64')
+            Distances from evaluation points to node point.
 
         Returns
         -------
-        w : float
-            Value of the cubic spline function at the given distance.
+        w : numpy.array([...], dtype='float64')
+            Values of the cubic spline function at the given distances.
 
         """
         i0 = r < 0.5
@@ -170,15 +208,15 @@ class MlsSim(object):
 
         Parameters
         ----------
-        r : float
-            Distance from evaluation point to node point.
+        r : numpy.array([...], dtype='float64')
+            Distances from evaluation points to node point.
 
         Returns
         -------
-        w : float
-            Value of the cubic spline function at the given distance.
-        dwdr : float
-            Value of the radial derivative at the given distance.
+        w : numpy.array([...], dtype='float64')
+            Values of the cubic spline function at the given distances.
+        dwdr : numpy.array([...], dtype='float64')
+            Values of the radial derivative at the given distances.
 
         """
         i0 = r < 0.5
@@ -204,17 +242,17 @@ class MlsSim(object):
 
         Parameters
         ----------
-        r : float
-            Distance from evaluation point to node point.
+        r : numpy.array([...], dtype='float64')
+            Distances from evaluation points to node point.
 
         Returns
         -------
-        w : float
-            Value of the cubic spline function at the given distance.
-        dwdr : float
-            Value of the radial derivative at the given distance.
-        d2wdr2 : float
-            Value of the 2nd order radial derivative at the given distance.
+        w : numpy.array([...], dtype='float64')
+            Values of the cubic spline function at the given distances.
+        dwdr : numpy.array([...], dtype='float64')
+            Values of the radial derivative at the given distances.
+        d2wdr2 : numpy.array([...], dtype='float64')
+            Values of the 2nd order radial derivative at the given distances.
 
         """
         i0 = r < 0.5
@@ -543,6 +581,7 @@ class MlsSim(object):
         None.
 
         """
+        ##### Alternative assembly method, turned out to be slower #####
         # self.createKMatrix()
         # for iQ, quad in enumerate(self.quads):
         #     indices = self.defineSupport(quad)

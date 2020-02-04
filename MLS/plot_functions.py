@@ -59,7 +59,7 @@ def sinxpy(points):
 def sinxsiny(points):
     return np.sin(np.pi*points[:,0])*np.sin(np.pi*points[:,1])
 
-func = sin2x
+func = x2
 
 mls = MlsSim(N=8, g=g, support=-1, form='cubic')
 
@@ -84,42 +84,45 @@ exact_function = func(points)
 # clear the current figure, if opened, and set parameters
 fig = plt.gcf()
 fig.clf()
-fig.set_size_inches(15,15)
+fig.set_size_inches(15,6)
 mpl.rc('axes', titlesize='xx-large', labelsize='x-large')
 mpl.rc('xtick', labelsize='large')
 mpl.rc('ytick', labelsize='large')
-plt.subplots_adjust(hspace = 0.3, wspace = 0.25)
+plt.subplots_adjust(hspace = 0.3, wspace = 0.1)
 
 # plot the result
 # plt.subplot(221)
 # plt.tripcolor(points[:,0], points[:,1], approximate_function, shading='gouraud')
 # plt.colorbar()
-ax = plt.subplot(221, projection='3d')
+ax = plt.subplot(121, projection='3d')
 surf = ax.plot_trisurf(points[:,0], points[:,1], approximate_function,
-                       cmap='viridis', linewidth=0, antialiased=False)
+                       cmap='viridis', linewidth=0, antialiased=False
+                       # , vmin=0, vmax=2
+                       )
+# ax.zaxis.set_ticks([0,0.5,1,1.5,2])
 plt.colorbar(surf, shrink=0.75, aspect=7)
 plt.xlabel(r'$x$')
 plt.ylabel(r'$y$')
 plt.title('MLS Approximation')
 
-# plot the result
-# plt.subplot(222)
-# plt.tripcolor(points[:,0], points[:,1], exact_function, shading='gouraud')
-# plt.colorbar()
-ax = plt.subplot(222, projection='3d')
-surf = ax.plot_trisurf(points[:,0], points[:,1], exact_function,
-                       cmap='viridis', linewidth=0, antialiased=False)
-plt.colorbar(surf, shrink=0.75, aspect=7)
-plt.xlabel(r'$x$')
-plt.ylabel(r'$y$')
-plt.title('Exact Function')
+# # plot the result
+# # plt.subplot(222)
+# # plt.tripcolor(points[:,0], points[:,1], exact_function, shading='gouraud')
+# # plt.colorbar()
+# ax = plt.subplot(222, projection='3d')
+# surf = ax.plot_trisurf(points[:,0], points[:,1], exact_function,
+#                        cmap='viridis', linewidth=0, antialiased=False)
+# plt.colorbar(surf, shrink=0.75, aspect=7)
+# plt.xlabel(r'$x$')
+# plt.ylabel(r'$y$')
+# plt.title('Exact Function')
 
 # plot the error
 difference = approximate_function - exact_function
 # plt.subplot(223)
 # plt.tripcolor(points[:,0], points[:,1], difference, shading='gouraud')
 # plt.colorbar()
-ax = plt.subplot(223, projection='3d')
+ax = plt.subplot(122, projection='3d')
 surf = ax.plot_trisurf(points[:,0], points[:,1], difference,
                        cmap='seismic', linewidth=0, antialiased=False,
                        vmin=-np.max(np.abs(difference)),
@@ -131,15 +134,6 @@ plt.colorbar(surf, shrink=0.75, aspect=7)
              # vmax=np.max(np.abs(difference)))
 plt.xlabel(r'$x$')
 plt.ylabel(r'$y$')
-plt.title('Difference')
+plt.title('Error')
 
-# subplots = [337, 338, 339, 334, 335, 336, 331, 332, 333]
-
-# for i in range(9):
-#     # plot the result
-#     plt.subplot(subplots[i])
-#     plt.tripcolor(points[:,0], points[:,1], phis[:,i], shading='gouraud')
-#     plt.colorbar()
-#     plt.xlabel(r'$x$')
-#     plt.ylabel(r'$y$')
-#     plt.title(f'$\Phi_{i}$')
+plt.savefig('MLS_xy.pdf', bbox_inches='tight', pad_inches=0)

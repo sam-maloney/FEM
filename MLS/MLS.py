@@ -23,9 +23,10 @@ def g(points):
 
 
 Nquad=1
-support=3.5
+support=-1
 form='cubic'
 method='galerkin'
+quadrature='uniform'
 
 # allocate arrays for convergence testing
 start = 1
@@ -45,7 +46,7 @@ for iN, N in enumerate(N_array):
     print('N =', N)
     
     # allocate arrays and compute boundary values
-    mlsSim = MlsSim(N, g, Nquad, support, form, method)
+    mlsSim = MlsSim(N, g, Nquad, support, form, method, quadrature)
     
     # Assemble the stiffness matrix and solve for the approximate solution
     tolerance = 1e-10
