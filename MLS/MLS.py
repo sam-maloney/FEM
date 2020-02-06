@@ -22,9 +22,9 @@ def g(points):
 # mls.assembleStiffnessMatrix()
 
 
-Nquad=1
+Nquad=2
 support=-1
-form='cubic'
+form='quartic'
 method='galerkin'
 quadrature='uniform'
 
@@ -105,7 +105,7 @@ plt.loglog(N_array, E_2, '.-', label=r'$E_2$')
 plt.minorticks_off()
 plt.xticks(N_array, N_array)
 plt.xlabel(r'$N$')
-plt.ylabel(r'Magnitudesupport of Error Norm')
+plt.ylabel(r'Magnitude of Error Norm')
 plt.title('MLS Error Norms')
 plt.legend(fontsize='x-large')
 ## add labels for order of convergence to the same plot
@@ -137,11 +137,13 @@ plt.minorticks_off()
 plt.xticks(N_array, N_array)
 plt.ylim(1, 3)
 plt.yticks([1, 1.5, 2, 2.5, 3])
+# plt.ylim(0, 3)
+# plt.yticks([0, 0.5, 1, 1.5, 2, 2.5, 3])
 plt.xlabel(r'$N$')
 plt.ylabel(r'Intra-step Order of Convergence')
 plt.title('MLS Order of Accuracy')
 plt.legend(fontsize='x-large')
-
 plt.margins(0,0)
-plt.savefig(f"MLS_{k}k_{Nquad}Q_{mlsSim.support*mlsSim.N}S_{form}_{method}.pdf",
-    bbox_inches = 'tight', pad_inches = 0)
+
+# plt.savefig(f"MLS_{k}k_{Nquad}Q_{mlsSim.support*mlsSim.N}S_{form}_{method}.pdf",
+#     bbox_inches = 'tight', pad_inches = 0)

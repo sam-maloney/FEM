@@ -16,7 +16,7 @@ from MlsSim import MlsSim
 def g(points):
     return np.zeros(len(points), dtype='float64')
 
-N=4
+N=2
 Nquad=1
 support=-1
 form='cubic'
@@ -48,7 +48,7 @@ plt.yticks(np.arange(N+1)/N)
 plt.grid()
 
 
-Nquad=2
+Nquad=3
 mls = MlsSim(N, g, Nquad, support, form, method, quadrature)
 
 plt.subplot(132)
@@ -63,6 +63,7 @@ plt.xticks(np.arange(N+1)/N)
 plt.yticks(np.arange(N+1)/N)
 plt.grid()
 
+Nquad=2
 quadrature='gaussian'
 mls = MlsSim(N, g, Nquad, support, form, method, quadrature)
 
@@ -78,4 +79,4 @@ plt.xticks(np.arange(N+1)/N)
 plt.yticks(np.arange(N+1)/N)
 plt.grid()
 
-plt.savefig("MLS_points.pdf", bbox_inches='tight', pad_inches=0)
+# plt.savefig("MLS_points.pdf", bbox_inches='tight', pad_inches=0)

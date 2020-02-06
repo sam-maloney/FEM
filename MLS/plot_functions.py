@@ -50,6 +50,12 @@ def sinx(points):
 def sin2x(points):
     return np.sin(2*np.pi*points[:,0])
 
+def siny(points):
+    return np.sin(np.pi*points[:,1])
+
+def sin2y(points):
+    return np.sin(2*np.pi*points[:,1])
+
 def sinxy(points):
     return np.sin(np.pi*(points[:,0]*points[:,1]))
 
@@ -97,7 +103,7 @@ plt.subplots_adjust(hspace = 0.3, wspace = 0.1)
 ax = plt.subplot(121, projection='3d')
 surf = ax.plot_trisurf(points[:,0], points[:,1], approximate_function,
                        cmap='viridis', linewidth=0, antialiased=False
-                       # , vmin=0, vmax=2
+                        # , vmin=0, vmax=2
                        )
 # ax.zaxis.set_ticks([0,0.5,1,1.5,2])
 plt.colorbar(surf, shrink=0.75, aspect=7)
@@ -132,8 +138,9 @@ surf = ax.plot_trisurf(points[:,0], points[:,1], difference,
 plt.colorbar(surf, shrink=0.75, aspect=7)
 # plt.colorbar(surf, vmin=-np.max(np.abs(difference)),
              # vmax=np.max(np.abs(difference)))
+# ax.zaxis.set_ticks([0, 0.001, 0.002, 0.003])
 plt.xlabel(r'$x$')
 plt.ylabel(r'$y$')
 plt.title('Error')
 
-plt.savefig('MLS_xy.pdf', bbox_inches='tight', pad_inches=0)
+# plt.savefig('MLS_xy.pdf', bbox_inches='tight', pad_inches=0)

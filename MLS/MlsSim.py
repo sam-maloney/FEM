@@ -26,7 +26,7 @@ class MlsSim(object):
         1D numpy.ndarray of size n for the function values at those points.
     Nquad : integer, optional
         Number of quadrature points in each grid cell along one dimension.
-        Must be either 1 or 2.
+        Must be > 0 and either 1 or 2 if quadrature is 'gaussian'.
         The default is 1.
     support : float, optional
         The size of the shape function support, given as a multiple of the
@@ -124,28 +124,35 @@ class MlsSim(object):
 
         """
         self.quadrature = quadrature
+        if quadrature not in ['uniform', 'gaussian']:
+            print(f"Error: bad quadrature distribution of '{quadrature}'. "
+                  f"Must be either 'uniform' or 'gaussian'.")
+        NquadN = self.Nquad*self.N
+        if (self.Nquad <= 0) and not float(self.Nquad).is_integer():
+            print(f"Error: bad Nquad value of '{self.Nquad}'. "
+                  f"Must be an integer greater than 0.")
+            return
         if self.Nquad == 1:
             self.quads = ( np.indices((self.N, self.N), dtype='float64')
                            .T.reshape(-1,2) + 0.5 ) / self.N
-            self.quadWeight = 1.0/(self.N*self.N)
-            self.nQuads = len(self.quads)
-        elif self.Nquad == 2:
+        elif quadrature == 'gaussian' and self.Nquad == 2:
             tmp = ( np.indices((self.N, self.N), dtype='float64')
                            .T.reshape(-1,2) + 0.5 ) / self.N
-            if quadrature == 'uniform':
-                offset = 0.25/self.N
-            elif quadrature == 'gaussian':
-                offset = 0.5/(np.sqrt(3.0)*self.N)
+            offset = 0.5/(np.sqrt(3.0)*self.N)
             self.quads = np.concatenate((
                 tmp - offset,
                 tmp + offset,
                 np.hstack((tmp[:,0:1] + offset, tmp[:,1:2] - offset)),
                 np.hstack((tmp[:,0:1] - offset, tmp[:,1:2] + offset)) ))
-            self.quadWeight = 0.25/(self.N*self.N)
-            self.nQuads = len(self.quads)
-        else:
+        elif quadrature == 'gaussian':
             print(f"Error: bad Nquad value of '{self.Nquad}'. "
-                  f"Must be either 1 or 2.")
+                  f"Must be either 1 or 2 for 'gaussian' quadrature.")
+            return
+        else: ##### Uniform quadrature for Nquad > 1 #####
+            self.quads = np.indices((NquadN,NquadN)).T.reshape(-1,2) / \
+                (NquadN)+1/(2*NquadN)
+        self.quadWeight = 1.0/(NquadN*NquadN)
+        self.nQuads = len(self.quads)
     
     def selectSpline(self, form):
         """Register the 'self.spline' method to the correct order kernel.
