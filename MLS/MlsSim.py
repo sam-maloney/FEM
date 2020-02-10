@@ -32,7 +32,7 @@ class MlsSim(object):
         The size of the shape function support, given as a multiple of the
         grid spacing for the given N if the value is positive.
         Supplying a negative value leads to default support sizes being used,
-        namely 1.4 for the Galerkin method or 2.6 for the collocation method.
+        namely 1.8 for quartic splines or 1.9 for cubic splines.
         The default is -1.
     form : string, optional
         Form of the spline used for the kernel weighting function.
@@ -57,12 +57,12 @@ class MlsSim(object):
         if support > 0:
             self.support = support/N
         else: # if support is negative, set to default grid spacing
-            if method == 'galerkin':
-                self.support = 1.4/N
-            elif method == 'collocation':
-                self.support = 2.6/N
-            else: # if method is unkown
-                self.support = 1.4/N
+            if form.lower() == 'quartic':
+                self.support = 1.8/N
+            elif form.lower() == 'cubic':
+                self.support = 1.9/N
+            else: # if form is unkown
+                self.support = 1.5/N
         self.nodes = ( np.indices((N+1, N+1), dtype='float64')
                        .T.reshape(-1,2) ) / N
         self.isBoundaryNode = np.any(np.mod(self.nodes, 1) == 0, axis=1)
@@ -94,15 +94,14 @@ class MlsSim(object):
         None.
 
         """
-        if method == 'galerkin':
+        self.method = method.lower()
+        if method.lower() == 'galerkin':
             self.assembleStiffnessMatrix = self.assembleGalerkinStiffnessMatrix
-            self.method = method
             self.generateQuadraturePoints(quadrature)
             self.b = np.concatenate((np.zeros(self.nNodes,dtype='float64'),
                                      self.boundaryValues))
-        elif method == 'collocation':
+        elif method.lower() == 'collocation':
             self.assembleStiffnessMatrix = self.assembleCollocationStiffnessMatrix
-            self.method = method
             self.b = np.zeros(self.nNodes,dtype='float64')
             self.b[self.isBoundaryNode] = self.boundaryValues
         else:
@@ -123,8 +122,8 @@ class MlsSim(object):
         None.
 
         """
-        self.quadrature = quadrature
-        if quadrature not in ['uniform', 'gaussian']:
+        self.quadrature = quadrature.lower()
+        if quadrature.lower() not in ['uniform', 'gaussian']:
             print(f"Error: bad quadrature distribution of '{quadrature}'. "
                   f"Must be either 'uniform' or 'gaussian'.")
         NquadN = self.Nquad*self.N
@@ -135,7 +134,7 @@ class MlsSim(object):
         if self.Nquad == 1:
             self.quads = ( np.indices((self.N, self.N), dtype='float64')
                            .T.reshape(-1,2) + 0.5 ) / self.N
-        elif quadrature == 'gaussian' and self.Nquad == 2:
+        elif quadrature.lower() == 'gaussian' and self.Nquad == 2:
             tmp = ( np.indices((self.N, self.N), dtype='float64')
                            .T.reshape(-1,2) + 0.5 ) / self.N
             offset = 0.5/(np.sqrt(3.0)*self.N)
@@ -144,7 +143,7 @@ class MlsSim(object):
                 tmp + offset,
                 np.hstack((tmp[:,0:1] + offset, tmp[:,1:2] - offset)),
                 np.hstack((tmp[:,0:1] - offset, tmp[:,1:2] + offset)) ))
-        elif quadrature == 'gaussian':
+        elif quadrature.lower() == 'gaussian':
             print(f"Error: bad Nquad value of '{self.Nquad}'. "
                   f"Must be either 1 or 2 for 'gaussian' quadrature.")
             return
@@ -168,12 +167,12 @@ class MlsSim(object):
         None.
 
         """
-        self.form = form
-        if form == 'cubic':
+        self.form = form.lower()
+        if form.lower() == 'cubic':
             self.spline0 = self.cubicSpline0
             self.spline1 = self.cubicSpline1
             self.spline2 = self.cubicSpline2
-        elif form == 'quartic':
+        elif form.lower() == 'quartic':
             self.spline0 = self.quarticSpline0
             self.spline1 = self.quarticSpline1
             self.spline2 = self.quarticSpline2

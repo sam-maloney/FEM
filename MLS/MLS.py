@@ -22,10 +22,10 @@ def g(points):
 # mls.assembleStiffnessMatrix()
 
 
-Nquad=2
-support=-1
+Nquad=1
+support=3.0
 form='quartic'
-method='galerkin'
+method='collocation'
 quadrature='uniform'
 
 # allocate arrays for convergence testing
@@ -60,13 +60,17 @@ for iN, N in enumerate(N_array):
     
     end_time = default_timer()
     
-    print('Condition Number  =', mlsSim.cond())
+    print('Condition Number =', mlsSim.cond())
     
     print('max error =', E_inf[iN])
     print('L2 error  =', E_2[iN])
-    print(f'Elapsed time: {end_time-start_time} s')
+    print(f'Elapsed time = {end_time-start_time} s')
     
 ##### End of loop over N #####
+
+print(f'min(E_2) = {np.min(E_2)}')
+print(f'min(E_inf) = {np.min(E_inf)}')
+
     
     
 ##### Begin Plotting Routines #####
@@ -100,7 +104,7 @@ plt.margins(0,0)
 
 # plot the error convergence
 plt.subplot(223)
-plt.loglog(N_array, E_inf, '.-', label=r'$E_\inf$')
+plt.loglog(N_array, E_inf, '.-', label=r'$E_\infty$')
 plt.loglog(N_array, E_2, '.-', label=r'$E_2$')
 plt.minorticks_off()
 plt.xticks(N_array, N_array)
@@ -128,22 +132,22 @@ logE_2 = np.log(E_2)
 order_inf = (logE_inf[0:-1] - logE_inf[1:])/(logN[1:] - logN[0:-1])
 order_2 = (logE_2[0:-1] - logE_2[1:])/(logN[1:] - logN[0:-1])
 intraN = np.logspace(start+0.5, stop-0.5, num=nSamples-1, base=2.0)
-plt.plot(intraN, order_inf, '.-', label=r'$E_\inf$')
+plt.plot(intraN, order_inf, '.-', label=r'$E_\infty$')
 plt.plot(intraN, order_2, '.-', label=r'$E_2$')
 plt.plot([N_array[0], N_array[-1]], [2, 2], 'k:', label='Expected')
 plt.xlim(N_array[0], N_array[-1])
 plt.xscale('log')
 plt.minorticks_off()
 plt.xticks(N_array, N_array)
-plt.ylim(1, 3)
-plt.yticks([1, 1.5, 2, 2.5, 3])
-# plt.ylim(0, 3)
-# plt.yticks([0, 0.5, 1, 1.5, 2, 2.5, 3])
+# plt.ylim(1, 3)
+# plt.yticks([1, 1.5, 2, 2.5, 3])
+plt.ylim(0, 3)
+plt.yticks([0, 0.5, 1, 1.5, 2, 2.5, 3])
 plt.xlabel(r'$N$')
 plt.ylabel(r'Intra-step Order of Convergence')
 plt.title('MLS Order of Accuracy')
 plt.legend(fontsize='x-large')
 plt.margins(0,0)
 
-# plt.savefig(f"MLS_{k}k_{Nquad}Q_{mlsSim.support*mlsSim.N}S_{form}_{method}.pdf",
-#     bbox_inches = 'tight', pad_inches = 0)
+plt.savefig(f"MLS_{method}_{form}_{k}k_{Nquad}Q_{mlsSim.support*mlsSim.N}S.pdf",
+    bbox_inches = 'tight', pad_inches = 0)

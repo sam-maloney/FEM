@@ -65,7 +65,7 @@ def sinxpy(points):
 def sinxsiny(points):
     return np.sin(np.pi*points[:,0])*np.sin(np.pi*points[:,1])
 
-func = x2
+func = sinxpy
 
 mls = MlsSim(N=8, g=g, support=-1, form='cubic')
 
