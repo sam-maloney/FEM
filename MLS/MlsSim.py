@@ -3,7 +3,7 @@
 """
 Created on Fri Jan 17 16:20:15 2020
 
-@author: samal
+@author: Sam Maloney
 """
 
 import numpy as np
@@ -27,7 +27,7 @@ class MlsSim(object):
     Nquad : integer, optional
         Number of quadrature points in each grid cell along one dimension.
         Must be > 0 and either 1 or 2 if quadrature is 'gaussian'.
-        The default is 1.
+        The default is 2.
     support : float, optional
         The size of the shape function support, given as a multiple of the
         grid spacing for the given N if the value is positive.
@@ -45,11 +45,11 @@ class MlsSim(object):
     quadrature : string, optional
         Distribution of quadrature points in each cell.
         Must be either 'uniform' or 'gaussian'.
-        The default is 'uniform'.
+        The default is 'gaussian'.
     """
     
-    def __init__(self, N, g, Nquad=1, support=-1, form='cubic',
-                 method='galerkin', quadrature='uniform'):
+    def __init__(self, N, g, Nquad=2, support=-1, form='cubic',
+                 method='galerkin', quadrature='gaussian'):
         self.N = N
         self.nCells = N*N
         self.nNodes = (N+1)*(N+1)
@@ -75,7 +75,8 @@ class MlsSim(object):
     
     def __repr__(self):
         return f"{self.__class__.__name__}({self.N},{self.g}," \
-               f"{self.Nquad},{self.support},'{self.form}','{self.method}')"
+               f"{self.Nquad},{self.support*self.N},'{self.form}'," \
+               f"'{self.method}','{self.quadrature}')"
     
     def selectMethod(self, method, quadrature):
         """Register the 'self.assembleStiffnesMatrix' method.

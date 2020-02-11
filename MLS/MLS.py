@@ -18,15 +18,11 @@ def g(points):
     k = 1
     return np.sin(k*np.pi*points[:,0]) * np.sinh(k*np.pi*points[:,1])
             
-# mls = MlsSim(10)
-# mls.assembleStiffnessMatrix()
-
-
-Nquad=1
-support=3.0
-form='quartic'
-method='collocation'
-quadrature='uniform'
+Nquad=2
+support=-1
+form='cubic'
+method='galerkin'
+quadrature='gaussian'
 
 # allocate arrays for convergence testing
 start = 1
@@ -112,17 +108,6 @@ plt.xlabel(r'$N$')
 plt.ylabel(r'Magnitude of Error Norm')
 plt.title('MLS Error Norms')
 plt.legend(fontsize='x-large')
-## add labels for order of convergence to the same plot
-#first = 1 # exclude 0th sample, as it is visually non-asymptotic
-#p_inf = np.polyfit(np.log10(N_array[first:]), np.log10(E_inf[first:]), 1)
-#p_2 = np.polyfit(np.log10(N_array[first:]), np.log10(E_2[first:]), 1)
-#plt.text(N_array[3], E_inf[3],
-#         '    $O(N^{' + "{:.2f}".format(p_inf[0]) + '})$',
-#         fontsize='large')
-#plt.text(N_array[3], E_2[3],
-#         r'$O\left(N^{' + "{:.2f}".format(p_2[0]) + r'}\right)$    ',
-#         fontsize='large', horizontalalignment='right',
-#         verticalalignment='top')
 
 # plot the intra-step order of convergence
 plt.subplot(224)
@@ -149,5 +134,5 @@ plt.title('MLS Order of Accuracy')
 plt.legend(fontsize='x-large')
 plt.margins(0,0)
 
-plt.savefig(f"MLS_{method}_{form}_{k}k_{Nquad}Q_{mlsSim.support*mlsSim.N}S.pdf",
-    bbox_inches = 'tight', pad_inches = 0)
+# plt.savefig(f"MLS_{method}_{form}_{k}k_{Nquad}Q_{mlsSim.support*mlsSim.N}S.pdf",
+#     bbox_inches = 'tight', pad_inches = 0)
