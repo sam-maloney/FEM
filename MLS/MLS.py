@@ -23,6 +23,7 @@ support=-1
 form='cubic'
 method='galerkin'
 quadrature='gaussian'
+precon='ilu'
 
 # allocate arrays for convergence testing
 start = 1
@@ -47,7 +48,7 @@ for iN, N in enumerate(N_array):
     # Assemble the stiffness matrix and solve for the approximate solution
     tolerance = 1e-10
     mlsSim.assembleStiffnessMatrix()
-    mlsSim.solve(tol=tolerance, atol=tolerance)
+    mlsSim.solve(tol=tolerance, atol=tolerance, preconditioner=precon)
     
     # compute the analytic solution and error norms
     u_exact = g(mlsSim.nodes)
@@ -56,7 +57,7 @@ for iN, N in enumerate(N_array):
     
     end_time = default_timer()
     
-    print('Condition Number =', mlsSim.cond())
+    # print('Condition Number =', mlsSim.cond())
     
     print('max error =', E_inf[iN])
     print('L2 error  =', E_2[iN])

@@ -370,7 +370,7 @@ class MlsSim(object):
     def shapeFunctions0(self, point, indices, check = False):
         """Compute shape function at quad point for all nodes in its support.
         Basis used is linear basis pT = [1 x y].
-        Computes the shape function value and its gradient.
+        Computes the shape function value only (no derivatives).
 
         Parameters
         ----------
@@ -668,19 +668,42 @@ class MlsSim(object):
         self.K = sp.csr_matrix( (data[0:index], indices[0:index], indptr),
                                 shape=(self.nNodes, self.nNodes) )
     
-    def solve(self, x0=None, tol=1e-05, maxiter=1000, M=None, callback=None,
-              inner_m=30, outer_k=3, outer_v=None, store_outer_Av=True,
-              prepend_outer_v=False, atol=1e-05):
+    def solve(self, preconditioner=None, x0=None, tol=1e-05, maxiter=1000,
+              M=None, callback=None, inner_m=30, outer_k=3, outer_v=None,
+              store_outer_Av=True, prepend_outer_v=False, atol=1e-05):
         """Solve for the approximate solution using an iterative solver.
+
+        Parameters
+        ----------
+        preconditioner : {string, None}
+            
 
         Returns
         -------
         None.
 
         """
-        uTmp, self.info = sp_la.lgmres(self.K, self.b,
-            x0, tol, maxiter, M, callback, inner_m, outer_k, outer_v,
-            store_outer_Av, prepend_outer_v, atol)
+        self.preconditioner = preconditioner
+        if preconditioner == None:
+            self.M = M
+        elif preconditioner.lower() == 'ilu':
+            ilu = sp_la.spilu(self.K)
+            Mx = lambda x: ilu.solve(x)
+            self.M = sp_la.LinearOperator(self.K.shape, Mx)
+        elif preconditioner.lower() == 'jacobi':
+            if self.method.lower() == 'collocation':
+                self.M = sp_la.inv( sp.diags(
+                    self.K.diagonal(), format='csc', dtype='float64') )
+            else: # if method == 'galerkin'
+                self.M = M
+                print("Error: 'jacobi' preconditioner not compatible with "
+                      "'galerkin' assembly method. Use 'ilu' or None instead."
+                      " Defaulting to None.")
+        uTmp, self.info = sp_la.bicgstab(self.K, self.b, x0, tol, maxiter,
+                                         self.M, callback, atol)
+        # uTmp, self.info = sp_la.lgmres(self.K, self.b,
+        #     x0, tol, maxiter, self.M, callback, inner_m, outer_k, outer_v,
+        #     store_outer_Av, prepend_outer_v, atol)
         # uTmp = sp_la.spsolve(self.K, self.b) # direct solver for testing
         if (self.info != 0):
             print(f'solution failed with error code: {self.info}')
@@ -691,8 +714,13 @@ class MlsSim(object):
             phi = self.shapeFunctions0(node, indices)
             self.u[iN] = uTmp[indices]@phi
     
-    def cond(self):
+    def cond(self, ord=2, preconditioned=True):
         """Computes the condition number of the stiffness matrix K.
+        
+        Parameters
+        ----------
+        ord : {int, inf, -inf, ‘fro’}, optional
+            Order of the norm. inf means numpy’s inf object. The default is 2.
 
         Returns
         -------
@@ -700,5 +728,15 @@ class MlsSim(object):
             The condition number of the matrix.
 
         """
-        c = sp_la.norm(self.K)*sp_la.norm(sp_la.inv(self.K.tocsc()))
+        if preconditioned:
+            A = self.M @ self.K.A
+        else:
+            A = self.K
+        if ord == 2:
+            LM = sp_la.svds(A, 1, which='LM', return_singular_vectors=False)
+            SM = sp_la.svds(A, 1, which='SM', return_singular_vectors=False)
+            c = LM[0]/SM[0]
+        else:
+            c = sp_la.norm(A, ord) * \
+                sp_la.norm(sp_la.inv(A), ord)
         return c
