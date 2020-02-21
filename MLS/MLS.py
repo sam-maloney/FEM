@@ -8,9 +8,13 @@ Simple Meshfree method simulation using moving least squares (MLS)
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import scipy.sparse as sp
 
 from MlsSim import MlsSim
 from timeit import default_timer
+
+import warnings
+warnings.filterwarnings("ignore", category=sp.SparseEfficiencyWarning)
 
 # wavenumber for boundary function u(x,1) = g(x,y) = sinh(k*pi)
 k = 1
@@ -18,12 +22,12 @@ def g(points):
     k = 1
     return np.sin(k*np.pi*points[:,0]) * np.sinh(k*np.pi*points[:,1])
             
-Nquad=2
-support=-1
+Nquad=1
+support=1.8
 form='cubic'
-method='galerkin'
+method='collocation'
 quadrature='gaussian'
-precon='ilu'
+precon='jacobi'
 
 # allocate arrays for convergence testing
 start = 1
@@ -57,7 +61,7 @@ for iN, N in enumerate(N_array):
     
     end_time = default_timer()
     
-    # print('Condition Number =', mlsSim.cond())
+    print('Condition Number =', mlsSim.cond('fro'))
     
     print('max error =', E_inf[iN])
     print('L2 error  =', E_2[iN])

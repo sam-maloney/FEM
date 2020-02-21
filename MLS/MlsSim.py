@@ -699,12 +699,12 @@ class MlsSim(object):
                 print("Error: 'jacobi' preconditioner not compatible with "
                       "'galerkin' assembly method. Use 'ilu' or None instead."
                       " Defaulting to None.")
-        uTmp, self.info = sp_la.bicgstab(self.K, self.b, x0, tol, maxiter,
-                                         self.M, callback, atol)
-        # uTmp, self.info = sp_la.lgmres(self.K, self.b,
-        #     x0, tol, maxiter, self.M, callback, inner_m, outer_k, outer_v,
-        #     store_outer_Av, prepend_outer_v, atol)
-        # uTmp = sp_la.spsolve(self.K, self.b) # direct solver for testing
+        # uTmp, self.info = sp_la.bicgstab(self.K, self.b, x0, tol, maxiter,
+        #                                  self.M, callback, atol)
+        uTmp, self.info = sp_la.lgmres(self.K, self.b,
+            x0, tol, maxiter, self.M, callback, inner_m, outer_k, outer_v,
+            store_outer_Av, prepend_outer_v, atol)
+        uTmp = sp_la.spsolve(self.K, self.b) # direct solver for testing
         if (self.info != 0):
             print(f'solution failed with error code: {self.info}')
         # reconstruct final u vector from shape functions
@@ -721,6 +721,9 @@ class MlsSim(object):
         ----------
         ord : {int, inf, -inf, ‘fro’}, optional
             Order of the norm. inf means numpy’s inf object. The default is 2.
+        preconditioned : bool, optional
+            Whether to compute the condition number with the preconditioning
+            operation applied to the stiffness matrix. The default is True.
 
         Returns
         -------
@@ -728,7 +731,7 @@ class MlsSim(object):
             The condition number of the matrix.
 
         """
-        if preconditioned:
+        if preconditioned and self.M != None:
             A = self.M @ self.K.A
         else:
             A = self.K
@@ -737,6 +740,8 @@ class MlsSim(object):
             SM = sp_la.svds(A, 1, which='SM', return_singular_vectors=False)
             c = LM[0]/SM[0]
         else:
-            c = sp_la.norm(A, ord) * \
-                sp_la.norm(sp_la.inv(A), ord)
+            if sp.issparse(A):
+                c = sp_la.norm(A, ord) * sp_la.norm(sp_la.inv(A), ord)
+            else: # A is dense
+                c = la.norm(A, ord) * la.norm(la.inv(A), ord)
         return c
