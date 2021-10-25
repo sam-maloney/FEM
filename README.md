@@ -4,7 +4,7 @@
 
 My program solves a simple 2D Poisson problem, specifically the homogeneous equation,
 
-![equation](https://latex.codecogs.com/gif.latex?-u_%7Bxx%7D%28x%2Cy%29-u_%7Byy%7D%28x%2Cy%29%3D0%2C%5Cqquad%28x%2Cy%29%5Cin%5COmega%3D%280%2C1%29%5Ctimes%280%2C1%29%2C)
+> <a href="https://www.codecogs.com/eqnedit.php?latex=-u_{xx}(x,y)-u_{yy}(x,y)=0,\qquad(x,y)\in\Omega=(0,1)\times(0,1)," target="_blank"><img src="https://latex.codecogs.com/svg.latex?-u_{xx}(x,y)-u_{yy}(x,y)=0,\qquad(x,y)\in\Omega=(0,1)\times(0,1)," title="-u_{xx}(x,y)-u_{yy}(x,y)=0,\qquad(x,y)\in\Omega=(0,1)\times(0,1)," /></a>
 
 with Dirichlet boundary conditions given as,
 
