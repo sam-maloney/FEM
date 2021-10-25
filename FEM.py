@@ -92,12 +92,10 @@ class FemSim(object):
             for i_alpha, alpha in enumerate(elem):
                 if self.mesh.is_boundary_node[alpha]:
                     self.F[alpha] += self.g[alpha]
-                    for beta in elem:
-                        if (beta == alpha):
-                            self.data[index] = 1
-                            self.row_ind[index] = alpha
-                            self.col_ind[index] = beta
-                            index += 1;
+                    self.data[index] = 1
+                    self.row_ind[index] = alpha
+                    self.col_ind[index] = alpha
+                    index += 1;
                     continue # to next alpha iteration
                 # if alpha is not a boundary node
                 for i_beta, beta in enumerate(elem):
